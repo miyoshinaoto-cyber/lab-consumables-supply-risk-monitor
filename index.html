@@ -1231,6 +1231,87 @@
     background: var(--line);
     border: 1px solid var(--line);
   }
+
+  /* ====== Per-country debug section ====== */
+  .country-debug-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .country-debug-card {
+    background: var(--panel);
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--ink-dim);
+  }
+  .country-debug-card.has-zero {
+    background: rgba(255,182,72,0.04);
+    border-left: 2px solid var(--med);
+  }
+  .country-debug-card.has-zero .country-debug-name { color: var(--med); }
+  .country-debug-card.has-relevant {
+    border-left: 2px solid var(--accent);
+  }
+  .country-debug-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .country-debug-name {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--ink);
+    letter-spacing: 0;
+  }
+  .country-debug-counts {
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+    font-size: 10.5px;
+  }
+  .country-debug-counts strong { color: var(--ink-dim); font-weight: 600; }
+  .country-debug-counts .has-content { color: var(--accent); font-weight: 700; }
+  .country-debug-zero {
+    color: var(--med);
+    font-style: italic;
+    margin: 6px 0 10px;
+  }
+  .country-debug-feeds {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+    border-top: 1px dashed var(--line-2);
+    padding-top: 8px;
+  }
+  .country-debug-feeds li {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    padding: 4px 0;
+    border-bottom: 1px dotted var(--line);
+    font-size: 10.5px;
+  }
+  .country-debug-feeds li:last-child { border-bottom: none; }
+  .country-debug-feeds .keyword {
+    color: var(--accent-2);
+    font-weight: 500;
+  }
+  .country-debug-feeds .stats { color: var(--ink-mute); white-space: nowrap; }
+  .country-debug-feeds .url {
+    grid-column: 1 / -1;
+    color: var(--ink-mute);
+    font-size: 9.5px;
+    word-break: break-all;
+    opacity: 0.7;
+  }
+  .country-debug-feeds .error {
+    grid-column: 1 / -1;
+    color: var(--high);
+    font-size: 10px;
+  }
   .filtered-item {
     background: var(--panel);
     padding: 14px 16px;
@@ -1484,6 +1565,22 @@
   <!-- ============== CARDS ============== -->
   <section class="cards" id="cardsGrid"></section>
 
+  <!-- ============== PER-COUNTRY RSS DEBUG ============== -->
+  <section id="countryDebugSection" class="filtered-rss-section" hidden>
+    <div class="filtered-rss-head">
+      <div>
+        <div class="filtered-rss-eyebrow">Debug · per-country coverage</div>
+        <h2 class="filtered-rss-title">RSS Coverage by Country</h2>
+        <p class="filtered-rss-subtitle">
+          Per-country fetch and classification breakdown for the latest RSS refresh.
+          Helps verify whether a country with zero relevant items genuinely has no
+          news, or whether a keyword / locale issue is at fault.
+        </p>
+      </div>
+    </div>
+    <div class="country-debug-list" id="countryDebugList"></div>
+  </section>
+
   <!-- ============== FILTERED RSS ITEMS (debug) ============== -->
   <section id="filteredRssSection" class="filtered-rss-section" hidden>
     <div class="filtered-rss-head">
@@ -1547,14 +1644,26 @@
    supply-risk signals across APAC. No paid APIs, no API keys.
    =========================================================== */
 const LOCAL_LANGUAGE_KEYWORDS = {
-  // Spec Part 6: limit to 2 strongest local-language keywords per country.
-  // The Google News locale (hl/gl/ceid) is what makes results local-language —
-  // see RSS_LOCALE_HINTS below.
+  // Per-country keyword sets used to build Google News RSS queries.
+  // Localisation (hl / gl / ceid) is set per-country in RSS_CONFIG.localeHints.
+  //
+  // Thailand gets 4 keywords (per Part 4 of the Thailand-coverage spec) because
+  // bilateral coverage from one Thai keyword is too thin to verify the absence
+  // of relevant news. The mix is:
+  //   - 2 Thai upstream (petrochem / plastic-feedstock vocab)
+  //   - 1 Thai direct/adjacent (lab consumables vocab)
+  //   - 1 English Thailand (English-language regional reporting)
+  // Other countries keep 2 keywords each. Total feed cap rises from 10 → 12.
   Thailand: {
-    languages: ["Thai"],
+    languages: ["Thai", "English"],
     keywords: [
-      "จานเพาะเชื้อ ขาดแคลน",
-      "ปิโตรเคมี ขาดแคลน"
+      // Thai upstream
+      "ปิโตรเคมี ขาดแคลน",                  // petrochemical shortage
+      "เม็ดพลาสติก ราคาสูงขึ้น",              // plastic pellet price surge
+      // Thai direct/adjacent
+      "จานเพาะเชื้อ ขาดแคลน",                // petri dish shortage
+      // English Thailand
+      "Thailand petrochemical supply disruption"
     ]
   },
   Japan: {
@@ -1627,10 +1736,15 @@ const RSS_CONFIG = {
     China:       { hl: "zh-CN", gl: "CN", ceid: "CN:zh-Hans" },
     Australia:   { hl: "en-AU", gl: "AU", ceid: "AU:en" }
   },
-  cacheKey: "lrm_rss_cache_v3",
+  cacheKey: "lrm_rss_cache_v4",
   cacheTtlMs: 24 * 60 * 60 * 1000,           // 24h daily refresh
-  topKeywordsPerCountry: 2,                   // Spec Part 7: max 2 keywords per country
-  maxFeedsPerRefresh: 10,                     // Spec Part 7: max 10 feeds total
+  // Per-country keyword cap. Default applies when a country isn't listed.
+  // Thailand-coverage spec (Part 4): Thailand gets 4 to test whether
+  // zero-result feedback is real or a coverage gap.
+  keywordsPerCountry: { Thailand: 4 },
+  defaultKeywordsPerCountry: 2,
+  // Total feed cap across all countries (Part 4: bumped from 10 → 12)
+  maxFeedsPerRefresh: 12,
   perFeedTimeoutMs: 9000,                     // network timeout per feed
   maxItemsPerFeed: 10,                        // cap items pulled from one feed
   maxSignalsAfterDedupe: 50                   // Spec Part 7: max 50 items after dedupe
@@ -1710,7 +1824,13 @@ const RELEVANCE_FILTERS = {
     "ラボ 消耗品", "実験室 消耗品", "実験用 プラスチック", "ラボ 用品",
     "实验室耗材", "实验室塑料耗材", "实验室 用品",
     "실험실 소모품", "실험용 플라스틱",
-    "วัสดุสิ้นเปลืองห้องแล็บ", "วัสดุสิ้นเปลืองห้องปฏิบัติการ"
+    // Thai lab / consumable vocabulary
+    "อุปกรณ์ห้องแล็บ",                   // lab equipment / supplies
+    "อุปกรณ์ห้องปฏิบัติการ",              // laboratory equipment
+    "วัสดุสิ้นเปลืองห้องแล็บ",             // lab consumables
+    "วัสดุสิ้นเปลืองห้องปฏิบัติการ",        // laboratory consumables
+    "พลาสติกใช้ครั้งเดียว",               // single-use plastic (lab context)
+    "พลาสติกใช้ครั้งเดียวในห้องแล็บ"      // single-use lab plastic
   ],
   tier3Upstream: [
     "naphtha",
@@ -1726,7 +1846,14 @@ const RELEVANCE_FILTERS = {
     "ethylene", "styrene", "monomer", "olefin", "olefins", "cracker", "crackers", "feedstock",
     "ナフサ", "石化", "石油化学", "ポリスチレン", "ポリプロピレン", "樹脂", "ポリマー",
     "石脑油", "石化", "石油化工", "聚苯乙烯", "聚丙烯", "树脂", "聚合物",
-    "나프타", "석유화학", "폴리스티렌", "폴리프로필렌", "수지", "폴리머"
+    "나프타", "석유화학", "폴리스티렌", "폴리프로필렌", "수지", "폴리머",
+    // Thai upstream vocabulary
+    "ปิโตรเคมี",            // petrochemical
+    "เม็ดพลาสติก",           // plastic pellets / resin
+    "แนฟทา",                 // naphtha
+    "วัตถุดิบพลาสติก",       // plastic raw material
+    "อุตสาหกรรมปิโตรเคมี",  // petrochemical industry
+    "ห่วงโซ่อุปทาน พลาสติก"  // plastic supply chain
   ],
 
   // ============================================================
@@ -1759,7 +1886,19 @@ const RELEVANCE_FILTERS = {
     "不足", "供給停止", "遅延", "リードタイム", "在庫切れ", "供給 不安", "減産", "停止", "シャットダウン",
     "短缺", "供应 中断", "延迟", "停产", "停工", "供应 紧张", "不确定", "减产",
     "부족", "지연", "공급 차질", "공급 불안", "감산", "가동 중단", "불확실",
-    "ขาดแคลน", "ล่าช้า", "ส่งมอบล่าช้า", "ขาดแคลน", "ปิด โรงงาน", "ลด กำลังการผลิต"
+    // Thai supply-side terms (Part 5 of the Thailand-coverage spec)
+    "ขาดแคลน",          // shortage
+    "ล่าช้า",             // delay
+    "ส่งมอบล่าช้า",       // delivery delay
+    "ราคาสูงขึ้น",        // price rise
+    "ราคาพุ่ง",           // price surge
+    "สะดุด",              // hiccup / disruption
+    "ชะงัก",              // stall
+    "ตึงตัว",             // tight (supply tightness)
+    "ปิดโรงงาน", "ปิด โรงงาน",     // plant shutdown (with + without space)
+    "ลดกำลังการผลิต", "ลด กำลังการผลิต", // production cut
+    "ความไม่แน่นอน",      // uncertainty
+    "ชะลอตัว"             // slowdown
   ],
 
   // ============================================================
@@ -1993,10 +2132,12 @@ function buildRssUrl(keyword, country) {
 function generateFeedList() {
   const countries = Object.keys(LOCAL_LANGUAGE_KEYWORDS);
   const perCountry = countries.map(c => {
-    const kws = LOCAL_LANGUAGE_KEYWORDS[c].keywords.slice(0, RSS_CONFIG.topKeywordsPerCountry);
+    const cap = (RSS_CONFIG.keywordsPerCountry && RSS_CONFIG.keywordsPerCountry[c])
+                || RSS_CONFIG.defaultKeywordsPerCountry || 2;
+    const kws = LOCAL_LANGUAGE_KEYWORDS[c].keywords.slice(0, cap);
     return kws.map(k => ({ country: c, keyword: k, url: buildRssUrl(k, c) }));
   });
-  // round-robin merge
+  // round-robin merge so countries with smaller caps are still represented
   const out = [];
   let i = 0;
   while (out.length < RSS_CONFIG.maxFeedsPerRefresh) {
@@ -2301,7 +2442,8 @@ async function refreshFromRss({ force = false } = {}) {
         upstreamCount: cached.upstreamCount || 0,
         weakCount: cached.weakCount || 0,
         filteredOut: cached.filteredOut || 0,
-        raw: cached.raw || 0
+        raw: cached.raw || 0,
+        countryDebug: cached.countryDebug || {}
       };
     }
   }
@@ -2309,19 +2451,32 @@ async function refreshFromRss({ force = false } = {}) {
   const feeds = generateFeedList();
   const results = [];
   let failed = 0, fetched = 0;
+  // Per-feed debug entries — one row per attempted feed. Used by the
+  // Thailand-coverage debug section in the UI.
+  const feedDebug = [];
 
   // Sequential fetch with small spacing to be polite to the proxy
   for (const f of feeds) {
+    const dbg = {
+      country: f.country,
+      keyword: f.keyword,
+      url: f.url,
+      rawCount: 0,
+      error: null
+    };
     try {
       const { text } = await fetchRssWithProxies(f.url);
       const items = parseRssXml(text);
+      dbg.rawCount = items.length;
       fetched++;
       items.forEach((it, i) => {
         results.push(rssItemToSignal(it, f, results.length + i));
       });
     } catch (e) {
       failed++;
+      dbg.error = (e && e.message) ? e.message : String(e);
     }
+    feedDebug.push(dbg);
   }
 
   if (results.length === 0) {
@@ -2371,6 +2526,27 @@ async function refreshFromRss({ force = false } = {}) {
   const upstreamCount = relevant.filter(s => s.relevance_type === "Upstream Signal").length;
   const weakCount     = relevant.filter(s => s.relevance_type === "Weak Signal").length;
 
+  // ----- Per-country debug breakdown (Thailand-coverage spec, Part 1) -----
+  // For each country: list of feed-debug rows, plus tallies by relevance type.
+  // Use the un-deduped `results` so per-country counts reflect what was
+  // actually fetched (post-dedup totals are global).
+  const countryDebug = {};
+  const allCountries = new Set([
+    ...feedDebug.map(d => d.country),
+    ...results.map(s => s.country)
+  ]);
+  allCountries.forEach(c => {
+    countryDebug[c] = {
+      feeds: feedDebug.filter(d => d.country === c),
+      rawFetched: feedDebug.filter(d => d.country === c).reduce((n, d) => n + d.rawCount, 0),
+      direct:   results.filter(s => s.country === c && s.relevance_type === "Direct Signal").length,
+      adjacent: results.filter(s => s.country === c && s.relevance_type === "Adjacent Signal").length,
+      upstream: results.filter(s => s.country === c && s.relevance_type === "Upstream Signal").length,
+      weak:     results.filter(s => s.country === c && s.relevance_type === "Weak Signal").length,
+      filtered: results.filter(s => s.country === c && s.relevance_type === "Filtered").length
+    };
+  });
+
   // 2. Dedupe by normalised title + host
   // 3. Sort: High → Medium → Low (Weak); within tier, newest first
   // 4. Cap at RELEVANCE_FILTERS.maxRendered (50 items)
@@ -2400,7 +2576,8 @@ async function refreshFromRss({ force = false } = {}) {
     directCount: directCount,
     adjacentCount: adjacentCount,
     upstreamCount: upstreamCount,
-    weakCount: weakCount
+    weakCount: weakCount,
+    countryDebug: countryDebug
   };
   writeRssCache(payload);
   return Object.assign({}, payload, { fromCache: false });
@@ -2546,8 +2723,71 @@ const SIGNALS = new Proxy([], {
    RENDERING & FILTERING
    =========================================================== */
 
-const COUNTRIES = [...new Set(SIGNALS.map(s => s.country))].sort();
-const SIGNAL_TYPES = [...new Set(SIGNALS.map(s => s.signal))].sort();
+/**
+ * Canonical 5-country scope. The Country dropdown always shows these
+ * five options regardless of whether sample / RSS data has loaded yet,
+ * so the user can filter even before the first fetch completes.
+ */
+const CANONICAL_COUNTRIES = ["Thailand", "Japan", "Korea", "China", "Australia"];
+
+/**
+ * Normalize a signal's country field to a string array.
+ *
+ * Defensive against the various shapes a signal might carry:
+ *   - country: "Japan"               → ["Japan"]
+ *   - country: ["Japan", "Thailand"] → ["Japan", "Thailand"]
+ *   - countries: ["Japan"]           → ["Japan"]
+ *   - countries: "Japan"             → ["Japan"]
+ *   - (none)                         → []
+ *
+ * Trims whitespace and drops empty strings so subsequent .includes()
+ * checks against dropdown values match correctly.
+ */
+function getSignalCountries(signal) {
+  if (!signal) return [];
+  const raw =
+    Array.isArray(signal.countries) ? signal.countries :
+    Array.isArray(signal.country)   ? signal.country   :
+    typeof signal.countries === "string" ? [signal.countries] :
+    typeof signal.country   === "string" ? [signal.country]   :
+    [];
+  return raw.map(s => String(s || "").trim()).filter(Boolean);
+}
+
+/**
+ * Build the dropdown country list from the actual data we currently have,
+ * unioned with the canonical 5-country scope so dropdown options exist
+ * even before any RSS / sample data is loaded.
+ */
+function getAvailableCountries() {
+  const set = new Set(CANONICAL_COUNTRIES);
+  const dataSets = [SAMPLE_DATA || [], state.rssSignals || []];
+  dataSets.forEach(ds => ds.forEach(s => getSignalCountries(s).forEach(c => set.add(c))));
+  return [...set].sort();
+}
+
+/**
+ * Build the signal-type dropdown list from current data, with a small
+ * default seed so the dropdown isn't empty before any data loads.
+ */
+const CANONICAL_SIGNAL_TYPES = [
+  "petri dish supply disruption",
+  "agar plate delay",
+  "sterile plasticware shortage",
+  "microbiology supplies shortage",
+  "petrochemical disruption",
+  "polystyrene supply",
+  "naphtha disruption",
+  "plastic consumables shortage",
+  "laboratory consumables shortage"
+];
+function getAvailableSignalTypes() {
+  const set = new Set(CANONICAL_SIGNAL_TYPES);
+  [SAMPLE_DATA || [], state.rssSignals || []].forEach(ds =>
+    ds.forEach(s => { if (s && typeof s.signal === "string" && s.signal.trim()) set.add(s.signal.trim()); })
+  );
+  return [...set].sort();
+}
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => document.querySelectorAll(sel);
@@ -2559,7 +2799,7 @@ const state = {
   signal: "",
   // Data-source mode: "sample" or "rss"
   mode: "sample",
-  // Active dataset (sample = SIGNALS; rss = fetched items)
+  // Active dataset (sample = SAMPLE_DATA; rss = fetched items)
   rssSignals: [],
   rssFilteredSignals: [],   // items the classifier rejected — surfaced in debug section
   rssTimestamp: null,
@@ -2570,6 +2810,7 @@ const state = {
   rssUpstreamCount: 0,
   rssWeakCount: 0,
   rssFilteredOut: 0,
+  rssCountryDebug: {},      // per-country debug breakdown from refreshFromRss
   rssLoading: false
 };
 
@@ -2578,26 +2819,53 @@ function getActiveSignals() {
   return state.mode === "rss" ? state.rssSignals : SAMPLE_DATA;
 }
 
+/**
+ * Repopulate both filter dropdowns from current data. Safe to call
+ * multiple times — preserves the user's current selection if that
+ * value is still a valid option, otherwise resets to "" (All).
+ *
+ * Idempotent: when the desired option set matches the dropdown's current
+ * option set, no DOM changes are made (avoids spurious re-renders that
+ * would close an open dropdown).
+ */
+function refreshFilterDropdowns() {
+  const cf = $("#countryFilter");
+  const sf = $("#signalFilter");
+
+  const sync = (sel, allLabel, opts, prevValue, onReset) => {
+    if (!sel) return;
+    const current = Array.from(sel.options).map(o => o.value).filter(v => v !== "");
+    const same = current.length === opts.length && current.every((v, i) => v === opts[i]);
+    if (!same) {
+      sel.innerHTML = `<option value="">${escapeHtml(allLabel)}</option>` +
+        opts.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`).join("");
+    }
+    // Restore user's selection if still valid; otherwise blank it.
+    if (prevValue && opts.includes(prevValue)) {
+      sel.value = prevValue;
+    } else if (prevValue) {
+      sel.value = "";
+      onReset();
+    } else {
+      sel.value = "";
+    }
+  };
+
+  sync(cf, "All countries", getAvailableCountries(), state.country, () => { state.country = ""; });
+  sync(sf, "All signal types", getAvailableSignalTypes(), state.signal, () => { state.signal = ""; });
+}
+
 function init() {
   // Load any persisted RSS-derived sample data first so sample mode has data
   loadSampleFromStorage();
 
-  // populate country dropdown
-  const cf = $("#countryFilter");
-  COUNTRIES.forEach(c => {
-    const opt = document.createElement("option");
-    opt.value = c; opt.textContent = c;
-    cf.appendChild(opt);
-  });
-  // populate signal dropdown
-  const sf = $("#signalFilter");
-  SIGNAL_TYPES.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s; opt.textContent = s;
-    sf.appendChild(opt);
-  });
+  // Populate filter dropdowns from current data (canonical 5 countries + any
+  // additional countries / signal types found in loaded sample/RSS data).
+  refreshFilterDropdowns();
 
   // events
+  const cf = $("#countryFilter");
+  const sf = $("#signalFilter");
   $("#searchInput").addEventListener("input", e => { state.search = e.target.value.trim().toLowerCase(); render(); });
   cf.addEventListener("change", e => { state.country = e.target.value; render(); });
   $("#riskFilter").addEventListener("change", e => { state.risk = e.target.value; render(); });
@@ -2685,6 +2953,7 @@ function initDataModeControls() {
     state.rssWeakCount    = cached.weakCount || 0;
     state.rssFilteredOut  = cached.filteredOut || 0;
     state.rssFilteredSignals = cached.filteredSignals || [];
+    state.rssCountryDebug = cached.countryDebug || {};
     // Don't pre-load into state.rssSignals — only when user picks RSS mode
   }
 }
@@ -2710,6 +2979,7 @@ async function switchMode(mode, opts) {
       state.rssUpstreamCount = cached.upstreamCount || 0;
       state.rssWeakCount     = cached.weakCount || 0;
       state.rssFilteredOut   = cached.filteredOut || 0;
+      state.rssCountryDebug  = cached.countryDebug || {};
       renderHeroStats(); renderRefreshStatus(); render();
       return;
     }
@@ -2751,6 +3021,7 @@ async function runRssRefresh(opts) {
     state.rssAdjacentCount = result.adjacentCount || 0;
     state.rssUpstreamCount = result.upstreamCount || 0;
     state.rssWeakCount     = result.weakCount || 0;
+    state.rssCountryDebug  = result.countryDebug || {};
     // Spec Part 9: bootstrap Sample data on first successful RSS refresh.
     // If the user has not yet built a sample, do it now from this batch.
     if (state.rssSignals.length > 0) {
@@ -3010,13 +3281,19 @@ function applyFilters() {
     return RANK[sc] !== undefined ? RANK[sc] : 9;
   };
   return getActiveSignals().filter(s => {
-    if (state.country && s.country !== state.country) return false;
+    if (state.country) {
+      // Use the normalised country list so single-country and array-country
+      // shapes both filter correctly. "Thailand" matches whether the signal
+      // has country: "Thailand" OR countries: ["Thailand", "Japan"].
+      const sigCountries = getSignalCountries(s);
+      if (!sigCountries.includes(state.country)) return false;
+    }
     if (state.risk && s.risk !== state.risk) return false;
     if (state.signal && s.signal !== state.signal) return false;
     if (state.search) {
       const q = state.search;
       const hay = [
-        s.headline, s.source, s.signal, s.country, s.why, s.opportunity,
+        s.headline, s.source, s.signal, getSignalCountries(s).join(" "), s.why, s.opportunity,
         s.original_headline || "",
         s.translated_headline || "",
         s.original_language || ""
@@ -3046,6 +3323,10 @@ function chipsHtml() {
 }
 
 function render() {
+  // Always refresh dropdowns first so newly fetched countries / signal types
+  // appear as options. Preserves the user's current selection if still valid.
+  refreshFilterDropdowns();
+
   const filtered = applyFilters();
   const grid = $("#cardsGrid");
   const af = $("#activeFilters");
@@ -3071,21 +3352,26 @@ function render() {
       </div>
     `;
     renderFilteredRssSection();
+    renderCountryDebugSection();
     return;
   }
 
   if (filtered.length === 0) {
     grid.innerHTML = `<div class="empty"><h4>No matching signals</h4><p>Try clearing filters or broadening the search.</p></div>`;
     renderFilteredRssSection();
+    renderCountryDebugSection();
     return;
   }
 
-  grid.innerHTML = filtered.map((s, i) => `
+  grid.innerHTML = filtered.map((s, i) => {
+    const countries = getSignalCountries(s);
+    const countryDisplay = countries.length ? countries.join(", ") : "—";
+    return `
     <article class="card" style="animation-delay: ${Math.min(i*40, 400)}ms;">
       <div class="card-idx">№ ${String(s.id).padStart(3,"0")}</div>
       <div class="card-top">
         <span class="risk-badge risk-${s.risk.toLowerCase()}">${s.risk} risk</span>
-        <span class="card-meta"><span class="country">${s.country}</span></span>
+        <span class="card-meta"><span class="country">${escapeHtml(countryDisplay)}</span></span>
       </div>
       <div class="lang-row">
         <span class="lang-pill" title="Original language of the source">${escapeHtml(getOriginalLanguage(s))}</span>
@@ -3114,11 +3400,17 @@ function render() {
         </div>
         ${renderDebugSourceUrl(s)}
         ${renderRelevanceReason(s)}
+        <div class="debug-source-url" aria-label="Debug: normalised country list">
+          <strong>Countries</strong><span class="debug-url-value">${escapeHtml(JSON.stringify(countries))}</span>
+        </div>
       </div>
     </article>
-  `).join("");
+  `;
+  }).join("");
   // Update the filtered-RSS debug section every render
   renderFilteredRssSection();
+  // And the per-country coverage debug section
+  renderCountryDebugSection();
 }
 
 /**
@@ -3131,6 +3423,80 @@ function render() {
  * exclusion terms, filter reason, and a working source link (or disabled
  * placeholder if the URL classifier rejected it).
  */
+/**
+ * Render the per-country RSS coverage debug section (Thailand-coverage spec
+ * Part 1 + 6). Visible only in RSS mode. For each country, shows:
+ *   - feeds attempted, raw items fetched
+ *   - direct / adjacent / upstream / weak / filtered counts
+ *   - per-keyword breakdown with full URL
+ *   - explicit "no relevant signals" message when applicable
+ *
+ * Importantly: never invents Thailand items. If Thailand returns zero
+ * relevant items, the card shows that fact transparently.
+ */
+function renderCountryDebugSection() {
+  const section = $("#countryDebugSection");
+  const list    = $("#countryDebugList");
+  if (!section || !list) return;
+
+  // Visible only in RSS mode and only when we have at least one feed attempt logged
+  const debug = state.rssCountryDebug || {};
+  const countries = Object.keys(debug);
+  if (state.mode !== "rss" || countries.length === 0) {
+    section.hidden = true;
+    return;
+  }
+  section.hidden = false;
+
+  // Stable order: canonical 5 first, then any extras alphabetically
+  const ordered = [
+    ...CANONICAL_COUNTRIES.filter(c => debug[c]),
+    ...countries.filter(c => !CANONICAL_COUNTRIES.includes(c)).sort()
+  ];
+
+  list.innerHTML = ordered.map(country => {
+    const d = debug[country];
+    const relevantTotal = (d.direct || 0) + (d.adjacent || 0) + (d.upstream || 0) + (d.weak || 0);
+    const cls = relevantTotal === 0 ? "has-zero" : "has-relevant";
+
+    const countsLine = [
+      `<strong>${d.rawFetched || 0}</strong> raw fetched`,
+      `<strong>${d.direct || 0}</strong> direct`,
+      `<strong>${d.adjacent || 0}</strong> adjacent`,
+      `<strong>${d.upstream || 0}</strong> upstream`,
+      `<strong>${d.weak || 0}</strong> weak`,
+      `<strong>${d.filtered || 0}</strong> filtered`
+    ].join(" · ");
+
+    const zeroMsg = relevantTotal === 0
+      ? `<div class="country-debug-zero">
+           ${escapeHtml(country)}: no relevant RSS signals found in this refresh.
+           Raw items below are shown for review (no synthetic signals are created).
+         </div>`
+      : "";
+
+    const feedRows = (d.feeds || []).map(f => `
+      <li>
+        <span class="keyword">${escapeHtml(f.keyword)}</span>
+        <span class="stats">${f.error ? "—" : (f.rawCount + " items")}</span>
+        <span class="url">${escapeHtml(f.url)}</span>
+        ${f.error ? `<span class="error">Error: ${escapeHtml(f.error)}</span>` : ""}
+      </li>
+    `).join("");
+
+    return `
+      <div class="country-debug-card ${cls}">
+        <div class="country-debug-head">
+          <div class="country-debug-name">${escapeHtml(country)}</div>
+          <div class="country-debug-counts ${relevantTotal > 0 ? 'has-content' : ''}">${countsLine}</div>
+        </div>
+        ${zeroMsg}
+        <ul class="country-debug-feeds">${feedRows || '<li><span class="stats">no feeds configured</span></li>'}</ul>
+      </div>
+    `;
+  }).join("");
+}
+
 function renderFilteredRssSection() {
   const section  = $("#filteredRssSection");
   const list     = $("#filteredRssList");
@@ -3186,7 +3552,7 @@ function renderFilteredRssSection() {
       <div class="filtered-item-headline">${escapeHtml(s.headline || "(no title)")}</div>
       ${linkCell(s)}
       <div class="filtered-item-meta">
-        <span class="country">${escapeHtml(s.country || "?")}</span>
+        <span class="country">${escapeHtml(getSignalCountries(s).join(", ") || "?")}</span>
         <span>Source: ${escapeHtml(s.source || "—")}</span>
         <span>Date: ${escapeHtml(s.date || "—")}</span>
         <span class="query">Query: <em>${escapeHtml(s.rssQueryKeyword || "—")}</em></span>
