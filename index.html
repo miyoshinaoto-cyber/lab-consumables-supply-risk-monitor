@@ -1479,104 +1479,233 @@ const SIGNAL_TYPE_RULES = [
    Articles failing the gate are not displayed.
    =========================================================== */
 const RELEVANCE_FILTERS = {
-  // Condition A — product / consumable terms (multilingual)
+  // ----- Direct-signal product / consumable terms (multilingual) -----
+  // These are the things our customers actually buy.
   product: [
     "petri dish", "petri dishes",
     "agar plate", "agar plates",
     "microbiology consumable", "microbiology consumables",
+    "microbiology supplies", "microbiology supply",
     "sterile plasticware", "laboratory plasticware", "lab plasticware",
+    "lab consumable", "lab consumables", "laboratory consumable", "laboratory consumables",
+    "lab supplies", "lab supply", "laboratory supplies", "laboratory supply",
+    "qc consumable", "qc consumables", "qc supplies",
+    "pipette tip", "pipette tips",
     // local-language equivalents
-    "ペトリ皿", "シャーレ",                 // Japanese
-    "培养皿", "皮氏培养皿",                  // Chinese
-    "페트리 접시", "배양 접시",              // Korean
-    "จานเพาะเชื้อ"                         // Thai
+    "ペトリ皿", "シャーレ", "実験用 消耗品", "検査用 消耗品", "微生物検査 消耗品", "微生物検査 資材",
+    "培养皿", "皮氏培养皿", "实验室耗材", "微生物检测 耗材", "实验室塑料耗材",
+    "페트리 접시", "배양 접시", "실험실 소모품", "미생물 검사 소모품",
+    "จานเพาะเชื้อ", "วัสดุสิ้นเปลืองห้องแล็บ", "วัสดุสิ้นเปลืองห้องปฏิบัติการ", "อุปกรณ์ตรวจจุลชีววิทยา"
   ],
-  // Condition B — supply / disruption terms (multilingual)
+
+  // ----- Direct-signal disruption / pressure terms (multilingual) -----
   disruption: [
-    "shortage", "delay", "delayed", "delays",
-    "disruption", "halted", "suspended", "backorder",
-    "unavailable", "supply issue", "lead time", "lead-time", "out of stock",
-    "outage", "outages", "tighten", "tightens", "tightening", "tightened",
+    "shortage", "shortages",
+    "delay", "delayed", "delays",
+    "disruption", "disruptions", "disrupted", "disrupt",
+    "halted", "suspended", "suspension",
+    "backorder", "back order", "back-order", "backlog",
+    "unavailable", "supply issue", "supply issues", "supply pressure", "supply constraint", "supply constraints",
+    "lead time", "lead times", "lead-time", "out of stock",
+    "outage", "outages",
+    "tighten", "tightens", "tightening", "tightened", "tighter",
+    "replenishment", "replenish",
+    "scarcity", "scarce",
+    "budget pressure", "budget pressures", "budget cut", "budget cuts",
+    "tightening grant", "tightening budgets",
+    // Capacity moves — both shortage signals AND mitigating capacity additions count as supply news
+    "capacity expansion", "capacity push", "capacity coming online",
+    "manufacturing push", "domestic manufacturing", "new capacity", "coming online",
     // local-language equivalents
-    "不足", "納期遅延", "供給停止", "遅延",  // Japanese
-    "短缺", "供应 中断", "延迟", "交货 延迟", // Chinese
-    "부족", "지연", "공급 차질", "납기 지연", // Korean
-    "ขาดแคลน", "ล่าช้า", "ส่งมอบล่าช้า"      // Thai
+    "不足", "納期遅延", "供給停止", "遅延", "リードタイム", "在庫切れ",
+    "短缺", "供应 中断", "延迟", "交货 延迟", "中断",
+    "부족", "지연", "공급 차질", "납기 지연",
+    "ขาดแคลน", "ล่าช้า", "ส่งมอบล่าช้า"
   ],
-  // Exclusion list — these tokens disqualify a result regardless of A/B
+
+  // ----- Upstream feedstock / petrochemical terms -----
+  feedstock: [
+    "polystyrene", "naphtha", "petrochemical", "petrochemicals",
+    "resin", "resins", "ethylene", "styrene", "cracker", "crackers",
+    "olefin", "olefins", "monomer", "polypropylene",
+    "ナフサ", "ポリスチレン", "石化", "石油化学",
+    "聚苯乙烯", "石脑油", "石化", "石油化工",
+    "폴리스티렌", "나프타", "석유화학"
+  ],
+
+  // ----- Upstream pressure terms (broader than direct-disruption) -----
+  upstreamPressure: [
+    "shortage", "delay", "delayed", "disruption", "halted", "suspended",
+    "tighten", "tightens", "tightening", "tightened", "tighter",
+    "restructuring", "restructure", "rationalization", "rationalisation",
+    "rate cut", "rate cuts", "operating rate", "turnaround", "shutdown", "shut down",
+    "outage", "outages", "force majeure", "maintenance",
+    "congestion", "port congestion", "shipping delay",
+    "export delay", "export schedule",
+    "supply uncertainty", "supply tightness", "tight supply",
+    "import cost", "import bill",
+    "capacity reduction", "capacity cut",
+    "feedstock", "feedstocks"
+  ],
+
+  // ----- Lab / consumable context terms (used to confirm an upstream signal touches our space) -----
+  labContext: [
+    "lab", "laboratory", "labs", "laboratories",
+    "consumable", "consumables", "plasticware",
+    "qc", "quality control", "microbiology", "microbiological", "micro testing",
+    "qc lab", "qc labs",
+    // Implicit lab/QC framing — testing-volume framing in food/poultry/dairy contexts
+    // is, in practice, talking about microbiology QC labs even if the article doesn't
+    // say "lab" explicitly.
+    "sampling requirement", "sampling requirements",
+    "testing volume", "testing volumes",
+    "testing scope", "test volume", "test volumes",
+    "processing plant", "processing plants",
+    "surveillance", "inspection", "inspections",
+    "ラボ", "実験室", "消耗品",
+    "实验室", "耗材",
+    "실험실", "소모품",
+    "ห้องแล็บ", "ห้องปฏิบัติการ"
+  ],
+
+  // ----- Demand-driven regulatory pressure (testing-scope expansions) -----
+  // Only counts when paired with a labContext term — otherwise we'd let in
+  // pure-disease-outbreak articles which Part 9 forbids.
+  regulatoryDemand: [
+    "expand testing", "expanded testing", "expands testing", "expand microbiological",
+    "testing scope", "testing requirement", "testing requirements",
+    "surveillance update", "surveillance program", "surveillance programme",
+    "sampling requirement", "sampling requirements",
+    "residue monitoring", "monitoring program", "monitoring programme",
+    "expand microbiological testing", "microbiological criteria",
+    "fda expands", "fda update", "regulation 2025", "regulation 2024",
+    "tighter standards", "tighter criteria",
+    "raising routine testing volumes", "raising testing", "test volume", "test volumes",
+    "audit-driven", "audit driven"
+  ],
+
+  // ----- Hard exclusions (Part 9) — these tokens disqualify regardless of other matches -----
+  // Note: NOT "research" by itself, because "research lab" is legitimate. We use phrase-level
+  // exclusions so genuine supply news isn't accidentally killed by ambient academic vocabulary.
   exclude: [
-    "research", "study", "studies", "paper", "papers",
-    "arxiv", "preprint",
-    " ai ", "artificial intelligence",   // pad spaces around "ai" so it doesn't hit "main", "said" etc.
-    "simulation", "modelling", "modeling",
-    "sustainability", "sustainable",
-    "recycling", "recycled", "plastic waste",
-    "environmental", "environment-friendly", "eco-friendly",
-    "academic", "academia",
-    "theory", "theoretical"
+    "research paper", "research papers", "academic paper", "academic study",
+    "peer-reviewed", "peer reviewed",
+    "arxiv", "preprint", "doi.org",
+    " ai ", "artificial intelligence", "machine learning", "deep learning",
+    "simulation study", "monte carlo", "computational model", "computational modelling",
+    "sustainability report", "sustainability initiative", "sustainable packaging",
+    "recycling program", "recycling initiative", "recycled plastic",
+    "plastic waste", "single-use plastic", "marine plastic", "ocean plastic",
+    "environmental impact", "carbon footprint", "eco-friendly",
+    "theoretical model", "theoretical framework",
+    // disease-outbreak / infection-rise framing without supply context
+    "outbreak update", "case count", "infection rate", "infection rates",
+    "epidemic spread", "pandemic spread"
   ],
-  // Top-N cap after dedupe
+
+  // ----- Cap on rendered RSS items -----
   maxRendered: 30
 };
 
-/**
- * Score an article's text against the strict relevance gate.
- * Returns:
- *   { score: "High",     reason: ... } — petri-dish + disruption match (Part 3 high-priority rule)
- *   { score: "Medium",   reason: ... } — plastic-feedstock disruption affecting lab consumables
- *   { score: "Filtered", reason: ... } — fails gate or hits exclusion list (do not display)
- *
- * Scoring is case-insensitive and works on the combined headline + description.
- */
-function scoreRelevance(text) {
-  const t = (text || "").toLowerCase();
-  if (!t.trim()) return { score: "Filtered", reason: "empty text" };
+/* ===========================================================
+   SHARED RELEVANCE CLASSIFIER
+   --------------------------------------------------------
+   classifySignal(articleText) is used by BOTH sample data and
+   RSS data so the categories that pass for sample also pass
+   for RSS. The decision tree:
 
-  // 1. Exclusion check — any hit drops the article
+     1. Exclusion check (research-paper / AI / sustainability /
+        plastic-waste / pure outbreak framing) → Filtered
+     2. Direct Signal:
+          product term  +  disruption term
+          → High if "petri dish" + strong disruption co-occur
+          → Medium otherwise
+     3. Upstream Signal:
+          (a) feedstock + upstream-pressure term  (e.g. naphtha + restructuring)
+          (b) feedstock + lab-context              (e.g. polystyrene + plasticware)
+          (c) port/logistics congestion + chemical/resin context
+          (d) regulatory testing-demand expansion + lab/consumable context
+          → Medium
+     4. Otherwise → Filtered
+   =========================================================== */
+function classifySignal(articleText) {
+  const t = (articleText || "").toLowerCase();
+  if (!t.trim()) {
+    return { relevanceType: "Filtered", relevanceScore: "Filtered", reason: "empty text" };
+  }
+
+  // 1. Hard exclusions
   for (const ex of RELEVANCE_FILTERS.exclude) {
     if (t.includes(ex.toLowerCase())) {
-      return { score: "Filtered", reason: 'excluded term: "' + ex.trim() + '"' };
+      return { relevanceType: "Filtered", relevanceScore: "Filtered",
+               reason: 'excluded term: "' + ex.trim() + '"' };
     }
   }
 
-  // 2. A ∧ B baseline gate
-  const productHit    = RELEVANCE_FILTERS.product.find(p => t.includes(p.toLowerCase())) || null;
-  const disruptionHit = RELEVANCE_FILTERS.disruption.find(d => t.includes(d.toLowerCase())) || null;
+  const has = (list) => list.find(x => t.includes(x.toLowerCase())) || null;
+  const productHit    = has(RELEVANCE_FILTERS.product);
+  const disruptionHit = has(RELEVANCE_FILTERS.disruption);
+  const feedstockHit  = has(RELEVANCE_FILTERS.feedstock);
+  const upstreamHit   = has(RELEVANCE_FILTERS.upstreamPressure);
+  const labCtxHit     = has(RELEVANCE_FILTERS.labContext);
+  const regDemandHit  = has(RELEVANCE_FILTERS.regulatoryDemand);
 
-  // 3. High priority: explicit "petri dish" + a strong disruption verb together
-  const PETRI_TERMS = ["petri dish", "petri dishes", "ペトリ皿", "シャーレ", "培养皿", "皮氏培养皿", "페트리 접시", "배양 접시", "จานเพาะเชื้อ"];
-  const STRONG_DISRUPTION = ["shortage", "delay", "disruption", "供給停止", "短缺", "不足", "ขาดแคลน", "ล่าช้า", "부족"];
-  const hasPetri  = PETRI_TERMS.some(p => t.includes(p.toLowerCase()));
-  const hasStrong = STRONG_DISRUPTION.some(d => t.includes(d.toLowerCase()));
-  if (hasPetri && hasStrong) {
-    return { score: "High", reason: "petri dish + strong disruption term" };
-  }
-
-  // 4. Medium: plastic raw-material / feedstock disruption affecting lab consumables
-  const FEEDSTOCK_TERMS = ["polystyrene", "naphtha", "petrochemical", "resin",
-                           "ナフサ", "ポリスチレン", "石化",
-                           "聚苯乙烯", "石脑油", "石化",
-                           "폴리스티렌", "나프타", "석유화학"];
-  const LAB_CONTEXT_TERMS = ["lab", "laboratory", "consumable", "consumables", "plasticware",
-                             "ラボ", "実験室", "消耗品",
-                             "实验室", "耗材",
-                             "실험실", "소모품",
-                             "ห้องแล็บ", "ห้องปฏิบัติการ"];
-  const hasFeedstock = FEEDSTOCK_TERMS.some(f => t.includes(f.toLowerCase()));
-  const hasLabCtx    = LAB_CONTEXT_TERMS.some(l => t.includes(l.toLowerCase()));
-  if (hasFeedstock && (hasLabCtx || productHit) && disruptionHit) {
-    return { score: "Medium", reason: "feedstock disruption with lab/consumable context" };
-  }
-
-  // 5. Generic A ∧ B without the strong combination: still Medium (covers e.g. "agar plate delay")
+  // 2. Direct Signal — product + disruption
   if (productHit && disruptionHit) {
-    return { score: "Medium", reason: 'A∧B match: "' + productHit + '" + "' + disruptionHit + '"' };
+    const PETRI_TERMS = ["petri dish", "petri dishes", "ペトリ皿", "シャーレ",
+                         "培养皿", "皮氏培养皿", "페트리 접시", "배양 접시", "จานเพาะเชื้อ"];
+    const STRONG_DISRUPTION = ["shortage", "delay", "disruption", "halted", "suspended",
+                               "供給停止", "短缺", "不足", "ขาดแคลน", "ล่าช้า", "부족"];
+    const hasPetri  = PETRI_TERMS.some(p => t.includes(p.toLowerCase()));
+    const hasStrong = STRONG_DISRUPTION.some(d => t.includes(d.toLowerCase()));
+    if (hasPetri && hasStrong) {
+      return { relevanceType: "Direct Signal", relevanceScore: "High",
+               reason: "petri dish + strong disruption term" };
+    }
+    return { relevanceType: "Direct Signal", relevanceScore: "Medium",
+             reason: 'product "' + productHit + '" + disruption "' + disruptionHit + '"' };
   }
 
-  // 6. Anything else — Filtered (do not display)
-  if (!productHit && !disruptionHit) return { score: "Filtered", reason: "no product and no disruption term" };
-  if (!productHit)    return { score: "Filtered", reason: "missing product term" };
-  return { score: "Filtered", reason: "missing disruption term" };
+  // 3a. Upstream Signal — feedstock + upstream-pressure
+  if (feedstockHit && upstreamHit) {
+    return { relevanceType: "Upstream Signal", relevanceScore: "Medium",
+             reason: 'feedstock "' + feedstockHit + '" + upstream pressure "' + upstreamHit + '"' };
+  }
+  // 3b. Upstream Signal — feedstock + lab/consumable context (even without explicit disruption)
+  if (feedstockHit && (labCtxHit || productHit)) {
+    return { relevanceType: "Upstream Signal", relevanceScore: "Medium",
+             reason: 'feedstock "' + feedstockHit + '" with lab / consumable context' };
+  }
+  // 3c. Logistics / port congestion affecting chemical/resin/plasticware exports
+  const LOGISTICS = ["port congestion", "congestion", "shipping delay", "export schedule", "export delay"];
+  const CHEM_REFS = ["chemical", "resin", "polystyrene", "polypropylene", "plasticware", "plastics"];
+  const hasLogistics = LOGISTICS.some(l => t.includes(l));
+  const hasChemRef   = CHEM_REFS.some(c => t.includes(c));
+  if (hasLogistics && hasChemRef) {
+    return { relevanceType: "Upstream Signal", relevanceScore: "Medium",
+             reason: "logistics congestion affecting chemical / plasticware exports" };
+  }
+  // 3d. Regulatory testing-demand expansion + lab / consumable context
+  if (regDemandHit && (labCtxHit || productHit)) {
+    return { relevanceType: "Upstream Signal", relevanceScore: "Medium",
+             reason: 'regulatory testing-demand expansion ("' + regDemandHit + '") + lab/consumable context' };
+  }
+
+  // 4. Filtered
+  return {
+    relevanceType: "Filtered",
+    relevanceScore: "Filtered",
+    reason: "no direct product+disruption pair, no feedstock-with-context pair, no relevant upstream pattern"
+  };
+}
+
+/**
+ * Backward-compatible wrapper used by render-time helpers.
+ * Returns { score, reason } where score ∈ {"High", "Medium", "Filtered"}.
+ */
+function scoreRelevance(text) {
+  const r = classifySignal(text);
+  return { score: r.relevanceScore, reason: r.reason };
 }
 
 /* Default Google-News-like source name extraction from XML <source> or <title> tail. */
@@ -1839,7 +1968,7 @@ function rssItemToSignal(item, ctx, idx) {
   const lang = detectLanguage(ctx.country, item.title);
   const isLocal = !ENGLISH_LANGS.includes(lang);
   const fullText = item.title + " " + (item.description || "");
-  const relevance = scoreRelevance(fullText);
+  const cls = classifySignal(fullText);
   const risk = classifyRisk(fullText);
   const signalType = classifySignalType(fullText, ctx.keyword);
   const dateIso = item.pubDate ? item.pubDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
@@ -1857,12 +1986,12 @@ function rssItemToSignal(item, ctx, idx) {
     country: ctx.country,
     risk: risk,
     signal: signalType,
-    relevance_score: relevance.score,            // High | Medium | Filtered
-    relevance_reason: relevance.reason,          // for debug display
+    relevance_type: cls.relevanceType,           // "Direct Signal" | "Upstream Signal" | "Filtered"
+    relevance_score: cls.relevanceScore,         // "High" | "Medium" | "Filtered"
+    relevance_reason: cls.reason,                // human-readable rationale for debug display
     why: "Open-source RSS signal matched on keyword \"" + ctx.keyword + "\". " +
-         "Auto-classified as " + risk.toLowerCase() + "-risk for " + signalType +
-         ". Relevance: " + relevance.score + " (" + relevance.reason + "). " +
-         "Review original article for full context before action.",
+         "Classified as " + cls.relevanceType + " (" + cls.relevanceScore + "). " +
+         cls.reason + ". Review original article for full context before action.",
     opportunity: "Potential Petrifilm conversion lead — confirm relevance against the original article. " +
                  "If supply pressure is genuine in this segment, position Petrifilm as a no-pour, no-prep alternative."
   };
@@ -1924,10 +2053,12 @@ async function refreshFromRss({ force = false } = {}) {
   }
 
   // 1. Strict relevance gate: drop everything classified as "Filtered".
-  //    Track filtered count for the status bar.
+  //    Track Direct / Upstream / Filtered counts for the status bar.
   const beforeFilter = results.length;
   const relevant = results.filter(s => s.relevance_score !== "Filtered");
   const filteredOut = beforeFilter - relevant.length;
+  const directCount   = relevant.filter(s => s.relevance_type === "Direct Signal").length;
+  const upstreamCount = relevant.filter(s => s.relevance_type === "Upstream Signal").length;
 
   // 2. Dedupe by normalised title + host
   // 3. Sort: High before Medium, then newest first
@@ -1947,7 +2078,9 @@ async function refreshFromRss({ force = false } = {}) {
     fetched,
     failed,
     raw: beforeFilter,
-    filteredOut: filteredOut
+    filteredOut: filteredOut,
+    directCount: directCount,
+    upstreamCount: upstreamCount
   };
   writeRssCache(payload);
   return Object.assign({}, payload, { fromCache: false });
@@ -2219,9 +2352,12 @@ function initDataModeControls() {
   // Pre-populate from cache for status display (does not switch mode)
   const cached = readRssCache();
   if (cached) {
-    state.rssTimestamp = cached.timestamp;
-    state.rssFetched = cached.fetched || 0;
-    state.rssFailed = cached.failed || 0;
+    state.rssTimestamp    = cached.timestamp;
+    state.rssFetched      = cached.fetched || 0;
+    state.rssFailed       = cached.failed || 0;
+    state.rssDirectCount  = cached.directCount || 0;
+    state.rssUpstreamCount = cached.upstreamCount || 0;
+    state.rssFilteredOut  = cached.filteredOut || 0;
     // Don't pre-load into state.rssSignals — only when user picks RSS mode
   }
 }
@@ -2237,10 +2373,13 @@ async function switchMode(mode, opts) {
     // Use cache if present and fresh; otherwise refresh
     const cached = readRssCache();
     if (cached && (Date.now() - cached.timestamp) < RSS_CONFIG.cacheTtlMs && !opts.force) {
-      state.rssSignals  = cached.signals || [];
-      state.rssTimestamp = cached.timestamp;
-      state.rssFetched   = cached.fetched || 0;
-      state.rssFailed    = cached.failed  || 0;
+      state.rssSignals       = cached.signals || [];
+      state.rssTimestamp     = cached.timestamp;
+      state.rssFetched       = cached.fetched || 0;
+      state.rssFailed        = cached.failed  || 0;
+      state.rssDirectCount   = cached.directCount || 0;
+      state.rssUpstreamCount = cached.upstreamCount || 0;
+      state.rssFilteredOut   = cached.filteredOut || 0;
       renderHeroStats(); renderRefreshStatus(); render();
       return;
     }
@@ -2271,12 +2410,14 @@ async function runRssRefresh(opts) {
   hideRssWarning();
   try {
     const result = await refreshFromRss({ force: !!opts.force });
-    state.rssSignals     = result.signals || [];
-    state.rssTimestamp   = result.timestamp;
-    state.rssFetched     = result.fetched;
-    state.rssFailed      = result.failed;
-    state.rssRaw         = result.raw || 0;
-    state.rssFilteredOut = result.filteredOut || 0;
+    state.rssSignals       = result.signals || [];
+    state.rssTimestamp     = result.timestamp;
+    state.rssFetched       = result.fetched;
+    state.rssFailed        = result.failed;
+    state.rssRaw           = result.raw || 0;
+    state.rssFilteredOut   = result.filteredOut || 0;
+    state.rssDirectCount   = result.directCount || 0;
+    state.rssUpstreamCount = result.upstreamCount || 0;
     if (state.rssSignals.length === 0) {
       showRssWarning("RSS refresh returned no relevant items after strict filtering. Showing sample data.");
       state.mode = "sample";
@@ -2330,7 +2471,11 @@ function renderRefreshStatus() {
   }
   if (itemsEl) {
     if (state.mode === "rss") {
-      const parts = [state.rssSignals.length + " relevant"];
+      const parts = [];
+      const direct   = state.rssDirectCount   || 0;
+      const upstream = state.rssUpstreamCount || 0;
+      parts.push(direct + " direct");
+      parts.push(upstream + " upstream");
       if (state.rssFilteredOut) parts.push(state.rssFilteredOut + " filtered");
       if (state.rssFailed)      parts.push(state.rssFailed + " feed err");
       itemsEl.textContent = parts.join(" · ");
@@ -2542,6 +2687,7 @@ function render() {
           ${renderTranslateButton(s)}
         </div>
         ${renderDebugSourceUrl(s)}
+        ${renderRelevanceReason(s)}
       </div>
     </article>
   `).join("");
@@ -2562,18 +2708,50 @@ function getOriginalLanguage(s) {
  *   - Medium    (amber)
  *   - Filtered  (greyed dashed; should never appear in RSS mode but may
  *                show on sample cards as a transparency cue)
+ *
+ * Returns { type, score, reason } where:
+ *   type  ∈ "Direct Signal" | "Upstream Signal" | "Filtered"
+ *   score ∈ "High" | "Medium" | "Filtered"
  */
 function getRelevance(s) {
-  if (s.relevance_score) return { score: s.relevance_score, reason: s.relevance_reason || "" };
+  if (s.relevance_score && s.relevance_type) {
+    return {
+      type:   s.relevance_type,
+      score:  s.relevance_score,
+      reason: s.relevance_reason || ""
+    };
+  }
   // Sample-data score: combine the fields most reflective of article content
   const text = [s.headline, s.original_headline, s.why].filter(Boolean).join(" ");
-  return scoreRelevance(text);
+  const cls = classifySignal(text);
+  return { type: cls.relevanceType, score: cls.relevanceScore, reason: cls.reason };
 }
 function renderRelevanceBadge(s) {
   const r = getRelevance(s);
   const cls = "relevance-" + String(r.score || "filtered").toLowerCase();
-  const tip = "Relevance Score: " + r.score + (r.reason ? " — " + r.reason : "");
-  return `<span class="relevance-badge ${cls}" title="${escapeHtml(tip)}">Relevance: ${escapeHtml(r.score)}</span>`;
+  const tip = (r.type ? r.type + " · " : "") + "Score: " + r.score + (r.reason ? " — " + r.reason : "");
+  // Show the type label (Direct / Upstream / Filtered) plus the score in parentheses
+  const typeLabel = r.type === "Direct Signal"   ? "Direct"
+                  : r.type === "Upstream Signal" ? "Upstream"
+                  : "Filtered";
+  return `<span class="relevance-badge ${cls}" title="${escapeHtml(tip)}">${escapeHtml(typeLabel)} · ${escapeHtml(r.score)}</span>`;
+}
+
+/**
+ * Renders the "Relevance reason" debug row.
+ * Visible on every card (alongside the Source URL debug row) so reviewers
+ * can see why each card was kept or how it was classified. Remove once
+ * filtering quality is verified in production.
+ */
+function renderRelevanceReason(s) {
+  const r = getRelevance(s);
+  const txt = (r.type ? r.type + " · " + r.score : r.score) +
+              (r.reason ? " — " + r.reason : "");
+  return `
+    <div class="debug-source-url" aria-label="Debug: relevance reason">
+      <strong>Relevance reason</strong><span class="debug-url-value">${escapeHtml(txt)}</span>
+    </div>
+  `;
 }
 
 /* Helper: is the original language English? */
