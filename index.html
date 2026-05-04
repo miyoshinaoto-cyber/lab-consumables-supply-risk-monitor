@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lab Consumables Supply Risk Monitor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e1014;
+    --bg-2: #14171d;
+    --panel: #181c24;
+    --panel-2: #1f242e;
+    --line: #2a313d;
+    --line-2: #353d4b;
+    --ink: #e6e8ec;
+    --ink-dim: #9aa3b2;
+    --ink-mute: #6b7385;
+    --accent: #d4ff3a;       /* lab signal yellow-green */
+    --accent-2: #7ce0ff;     /* cyan accent */
+    --high: #ff5b5b;
+    --med:  #ffb648;
+    --low:  #5ee49a;
+    --grid: rgba(255,255,255,0.03);
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --display: 'Fraunces', Georgia, serif;
+    --body: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+    background-image:
+      linear-gradient(var(--grid) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-position: -1px -1px;
+  }
+
+  a { color: inherit; }
+
+  /* ====== TOP BAR ====== */
+  .topbar {
+    border-bottom: 1px solid var(--line);
+    background: rgba(14,16,20,0.85);
+    backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .topbar-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 14px 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 14px;
+  }
+  .brand-mark {
+    width: 36px; height: 36px;
+    border: 1px solid var(--line-2);
+    border-radius: 4px;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, #1d2330, #11141b);
+    position: relative;
+  }
+  .brand-mark::before {
+    content: "";
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--accent);
+    box-shadow: 0 0 12px rgba(212,255,58,0.4);
+  }
+  .brand-mark::after {
+    content: "";
+    position: absolute;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+  .brand-text { display: flex; flex-direction: column; line-height: 1.1; }
+  .brand-name {
+    font-family: var(--display);
+    font-weight: 600;
+    font-size: 18px;
+    letter-spacing: -0.01em;
+  }
+  .brand-sub {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-top: 3px;
+  }
+
+  .status-pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--ink-dim);
+    border: 1px solid var(--line-2);
+    padding: 6px 11px;
+    border-radius: 999px;
+    background: var(--panel);
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--low);
+    box-shadow: 0 0 8px rgba(94,228,154,0.7);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* ====== MAIN WRAPPER ====== */
+  .wrap {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 32px 28px 64px;
+  }
+
+  /* ====== HEADER / HERO ====== */
+  .hero {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 40px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 32px;
+    margin-bottom: 28px;
+  }
+  .hero-eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 18px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .hero-eyebrow::before {
+    content: "";
+    width: 28px; height: 1px; background: var(--accent);
+  }
+  .hero h1 {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: clamp(32px, 4.2vw, 52px);
+    line-height: 1.02;
+    margin: 0 0 16px;
+    letter-spacing: -0.02em;
+  }
+  .hero h1 em {
+    font-style: italic;
+    color: var(--accent);
+    font-weight: 400;
+  }
+  .hero p.lead {
+    color: var(--ink-dim);
+    font-size: 15px;
+    max-width: 56ch;
+    margin: 0;
+  }
+
+  .hero-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+    align-self: start;
+  }
+  .stat {
+    background: var(--panel);
+    padding: 18px 18px 16px;
+  }
+  .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+  }
+  .stat-value {
+    font-family: var(--display);
+    font-size: 32px;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .stat-value.high { color: var(--high); }
+  .stat-value.med { color: var(--med); }
+  .stat-value.low { color: var(--low); }
+  .stat-value.accent { color: var(--accent); }
+  .stat-meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    margin-top: 6px;
+  }
+
+  /* ====== DISCLAIMER NOTE ====== */
+  .disclaimer {
+    border: 1px dashed var(--line-2);
+    background: rgba(212,255,58,0.04);
+    padding: 12px 16px;
+    margin-bottom: 28px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    display: flex; align-items: center; gap: 12px;
+    border-radius: 2px;
+  }
+  .disclaimer-tag {
+    background: var(--accent);
+    color: #0e1014;
+    font-weight: 700;
+    padding: 3px 8px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  /* ====== CONTROLS ====== */
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 16px;
+    align-items: end;
+    margin-bottom: 24px;
+  }
+  .search-wrap {
+    position: relative;
+  }
+  .search-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+    display: block;
+  }
+  .search-input {
+    width: 100%;
+    background: var(--panel);
+    border: 1px solid var(--line-2);
+    color: var(--ink);
+    padding: 14px 18px 14px 44px;
+    font-family: var(--mono);
+    font-size: 13px;
+    border-radius: 2px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-input:focus { border-color: var(--accent); }
+  .search-input::placeholder { color: var(--ink-mute); }
+  .search-icon {
+    position: absolute;
+    left: 16px; bottom: 14px;
+    color: var(--ink-mute);
+    pointer-events: none;
+  }
+
+  .filters {
+    display: flex; gap: 12px; flex-wrap: wrap;
+  }
+  .filter-group {
+    display: flex; flex-direction: column;
+  }
+  .filter-group label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 8px;
+  }
+  .filter-group select {
+    background: var(--panel);
+    border: 1px solid var(--line-2);
+    color: var(--ink);
+    padding: 12px 36px 12px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    border-radius: 2px;
+    outline: none;
+    appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' stroke='%239aa3b2' stroke-width='1.4' fill='none'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    min-width: 140px;
+    transition: border-color 0.15s;
+  }
+  .filter-group select:hover, .filter-group select:focus { border-color: var(--accent); }
+
+  .reset-btn {
+    background: transparent;
+    border: 1px solid var(--line-2);
+    color: var(--ink-dim);
+    padding: 12px 16px;
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+    transition: all 0.15s;
+    align-self: flex-end;
+  }
+  .reset-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  /* ====== ACTIVE FILTER CHIPS ====== */
+  .active-filters {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin-bottom: 20px;
+    min-height: 24px;
+  }
+  .chip {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--panel-2);
+    border: 1px solid var(--line-2);
+    color: var(--ink-dim);
+    padding: 4px 10px;
+    border-radius: 2px;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .chip strong {
+    color: var(--accent);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 10px;
+  }
+  .results-count {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    margin-left: auto;
+    align-self: center;
+  }
+
+  /* ====== CARDS GRID ====== */
+  .cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+    gap: 1px;
+    background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .card {
+    background: var(--panel);
+    padding: 22px 22px 20px;
+    display: flex; flex-direction: column;
+    position: relative;
+    transition: background 0.2s;
+    min-height: 360px;
+  }
+  .card:hover { background: var(--panel-2); }
+
+  .card-top {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px dashed var(--line-2);
+  }
+  .risk-badge {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.16em;
+    padding: 4px 9px;
+    border-radius: 2px;
+    text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: 7px;
+  }
+  .risk-badge::before {
+    content: "";
+    width: 6px; height: 6px; border-radius: 50%;
+  }
+  .risk-high { background: rgba(255,91,91,0.12); color: var(--high); border: 1px solid rgba(255,91,91,0.3); }
+  .risk-high::before { background: var(--high); box-shadow: 0 0 6px var(--high); }
+  .risk-medium { background: rgba(255,182,72,0.10); color: var(--med); border: 1px solid rgba(255,182,72,0.28); }
+  .risk-medium::before { background: var(--med); }
+  .risk-low { background: rgba(94,228,154,0.10); color: var(--low); border: 1px solid rgba(94,228,154,0.28); }
+  .risk-low::before { background: var(--low); }
+
+  .card-meta {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+  }
+  .card-meta .country {
+    color: var(--accent-2);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+  }
+
+  .card h3 {
+    font-family: var(--display);
+    font-weight: 500;
+    font-size: 19px;
+    line-height: 1.25;
+    margin: 0 0 12px;
+    letter-spacing: -0.005em;
+  }
+
+  .card-source {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-dim);
+    margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card-source .src-name { color: var(--ink); font-weight: 500; }
+  .card-source .dot { color: var(--ink-mute); }
+
+  .signal-tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-dim);
+    background: rgba(124,224,255,0.06);
+    border: 1px solid rgba(124,224,255,0.2);
+    padding: 3px 8px;
+    border-radius: 2px;
+    margin-bottom: 14px;
+    align-self: flex-start;
+  }
+
+  .card-section {
+    margin-bottom: 12px;
+  }
+  .card-section-label {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-mute);
+    margin-bottom: 5px;
+  }
+  .card-section p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+  }
+  .card-section.opportunity p {
+    color: var(--ink);
+  }
+  .card-section.opportunity {
+    border-left: 2px solid var(--accent);
+    padding-left: 12px;
+    margin-left: -2px;
+    background: rgba(212,255,58,0.03);
+    padding: 10px 12px;
+    border-radius: 0 2px 2px 0;
+  }
+  .card-section.opportunity .card-section-label {
+    color: var(--accent);
+  }
+
+  .card-cta {
+    margin-top: auto;
+    padding-top: 14px;
+  }
+  .open-source-btn {
+    display: inline-flex; align-items: center; justify-content: center;
+    gap: 10px;
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--line-2);
+    color: var(--ink);
+    padding: 11px 14px;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    text-decoration: none;
+    border-radius: 2px;
+    transition: all 0.18s;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  .open-source-btn:hover {
+    background: var(--accent);
+    color: var(--bg);
+    border-color: var(--accent);
+  }
+  .open-source-btn .arrow { transition: transform 0.18s; }
+  .open-source-btn:hover .arrow { transform: translate(2px, -2px); }
+
+  /* card index marker */
+  .card-idx {
+    position: absolute;
+    top: 22px; right: 22px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--ink-mute);
+    letter-spacing: 0.1em;
+  }
+
+  /* ====== EMPTY STATE ====== */
+  .empty {
+    grid-column: 1 / -1;
+    background: var(--panel);
+    padding: 80px 24px;
+    text-align: center;
+  }
+  .empty h4 {
+    font-family: var(--display);
+    font-size: 22px;
+    margin: 0 0 8px;
+    color: var(--ink);
+  }
+  .empty p {
+    color: var(--ink-mute);
+    font-family: var(--mono);
+    font-size: 12px;
+    margin: 0;
+  }
+
+  /* ====== FOOTER ====== */
+  footer {
+    margin-top: 48px;
+    padding-top: 24px;
+    border-top: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 12px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-mute);
+    letter-spacing: 0.06em;
+  }
+  footer a { color: var(--ink-dim); text-decoration: none; border-bottom: 1px dotted var(--line-2); }
+  footer a:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* ====== RESPONSIVE ====== */
+  @media (max-width: 900px) {
+    .hero { grid-template-columns: 1fr; gap: 24px; }
+    .controls { grid-template-columns: 1fr; }
+    .filters { width: 100%; }
+    .filter-group { flex: 1; min-width: 130px; }
+    .topbar-inner { padding: 12px 18px; }
+    .wrap { padding: 24px 18px 48px; }
+  }
+  @media (max-width: 540px) {
+    .cards { grid-template-columns: 1fr; }
+    .hero-stats { grid-template-columns: 1fr 1fr; }
+    .brand-sub { display: none; }
+  }
+
+  /* fade-in stagger */
+  .card { animation: fadeUp 0.5s both; }
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============== TOP BAR ============== -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-mark"></div>
+      <div class="brand-text">
+        <div class="brand-name">Supply Risk Monitor</div>
+        <div class="brand-sub">Lab Consumables · APAC Intelligence</div>
+      </div>
+    </div>
+    <div class="status-pill">
+      <span class="status-dot"></span>
+      <span id="liveStatus">Open-source feeds · Demo data</span>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============== HERO ============== -->
+  <section class="hero">
+    <div>
+      <div class="hero-eyebrow">Prototype · v0.1</div>
+      <h1>Tracking <em>supply-side signals</em> in microbiology &amp; lab consumables across APAC.</h1>
+      <p class="lead">A scanning surface for open-source news on petri dishes, agar plates, sterile plasticware and upstream petrochemical feedstocks &mdash; surfaced as potential Petrifilm conversion opportunities.</p>
+    </div>
+    <div class="hero-stats" id="heroStats">
+      <!-- populated by JS -->
+    </div>
+  </section>
+
+  <!-- ============== DISCLAIMER ============== -->
+  <div class="disclaimer">
+    <span class="disclaimer-tag">Notice</span>
+    <span>This prototype uses only open / public information and does not include internal company or customer data.</span>
+  </div>
+
+  <!-- ============== CONTROLS ============== -->
+  <div class="controls">
+    <div class="search-wrap">
+      <label class="search-label" for="searchInput">Search signals</label>
+      <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+      <input id="searchInput" class="search-input" type="search" placeholder="Search headline, source, keyword…" autocomplete="off" />
+    </div>
+    <div class="filters">
+      <div class="filter-group">
+        <label for="countryFilter">Country</label>
+        <select id="countryFilter">
+          <option value="">All countries</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="riskFilter">Risk level</label>
+        <select id="riskFilter">
+          <option value="">All</option>
+          <option value="High">High</option>
+          <option value="Medium">Medium</option>
+          <option value="Low">Low</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label for="signalFilter">Signal type</label>
+        <select id="signalFilter">
+          <option value="">All signals</option>
+        </select>
+      </div>
+      <button class="reset-btn" id="resetBtn">Reset</button>
+    </div>
+  </div>
+
+  <div class="active-filters" id="activeFilters">
+    <div class="results-count" id="resultsCount"></div>
+  </div>
+
+  <!-- ============== CARDS ============== -->
+  <section class="cards" id="cardsGrid"></section>
+
+  <footer>
+    <div>© 2026 · Supply Risk Monitor (Prototype) · Open-source data only</div>
+    <div>Built for GitHub Pages · No API keys · No internal data</div>
+  </footer>
+</main>
+
+<script>
+/* ===========================================================
+   SAMPLE OPEN-SOURCE SIGNAL DATA
+   --------------------------------------------------------
+   All entries are illustrative examples representing the
+   types of public news and reports this monitor would
+   surface. Source URLs link to real public publishers so
+   reviewers can validate the source format.
+   =========================================================== */
+
+const SIGNALS = [
+  {
+    id: 1,
+    headline: "Naphtha cracker outages in Northeast Asia tighten polystyrene supply into Q2",
+    source: "Reuters Commodities",
+    url: "https://www.reuters.com/markets/commodities/",
+    date: "2026-04-22",
+    country: "Korea",
+    risk: "High",
+    signal: "polystyrene supply",
+    why: "Polystyrene is the primary feedstock for sterile petri dishes. Korean cracker turnarounds combined with weak naphtha margins are reducing styrene monomer availability across the region, with downstream effects expected on disposable lab plasticware over 6–10 weeks.",
+    opportunity: "Customers running heavy petri dish workflows in Korea and Japan may face lot delays. Position Petrifilm plates as a no-pour, no-prep alternative to de-risk QC schedules during the squeeze."
+  },
+  {
+    id: 2,
+    headline: "Japanese lab distributors flag extended lead times on imported sterile plasticware",
+    source: "Nikkei Asia",
+    url: "https://asia.nikkei.com/",
+    date: "2026-04-18",
+    country: "Japan",
+    risk: "High",
+    signal: "sterile plasticware shortage",
+    why: "Several Japanese distributors have publicly cited 8–12 week lead times on imported petri dishes and sterile pipette tips, attributed to upstream resin shortages and shipping reliability issues out of Northeast Asia.",
+    opportunity: "Direct fit for Petrifilm conversion in food &amp; beverage QC and pharma environmental monitoring labs that cannot tolerate longer agar-plate replenishment cycles."
+  },
+  {
+    id: 3,
+    headline: "Vietnam aquaculture sector scales QC testing as EU export rules tighten",
+    source: "VnExpress International",
+    url: "https://e.vnexpress.net/",
+    date: "2026-04-15",
+    country: "Vietnam",
+    risk: "Medium",
+    signal: "microbiology supplies shortage",
+    why: "Vietnamese seafood processors are publicly reporting a sharp uptick in required microbiological testing volumes to meet EU import requirements, putting pressure on local agar plate and prepared media supply chains.",
+    opportunity: "High-volume, throughput-driven seafood QC labs are ideal Petrifilm conversion targets — same-day plating, reduced incubator footprint, and consistent supply via local 3M/Solventum distribution."
+  },
+  {
+    id: 4,
+    headline: "Thailand FDA expands microbiological testing scope for ready-to-eat foods",
+    source: "Bangkok Post",
+    url: "https://www.bangkokpost.com/",
+    date: "2026-04-10",
+    country: "Thailand",
+    risk: "Medium",
+    signal: "microbiology supplies shortage",
+    why: "Public regulatory updates from Thailand's FDA broaden mandatory pathogen testing for several RTE food categories. Industry associations have publicly noted concern over QC lab capacity and consumable availability.",
+    opportunity: "RTE manufacturers needing rapid scale-up of in-house micro testing are strong Petrifilm prospects — turnkey, standardized format reduces dependency on agar plate procurement."
+  },
+  {
+    id: 5,
+    headline: "China port congestion at Ningbo lengthens chemical export schedules",
+    source: "South China Morning Post",
+    url: "https://www.scmp.com/",
+    date: "2026-04-08",
+    country: "China",
+    risk: "Medium",
+    signal: "petrochemical disruption",
+    why: "Reported congestion at Ningbo-Zhoushan is delaying chemical and resin exports to Southeast Asia by an average of 9 days, per public shipping intelligence. Polystyrene and polypropylene shipments are among those affected.",
+    opportunity: "Watch for downstream effects on plasticware availability in Indonesia, Vietnam, and the Philippines over the next 4–6 weeks. Pre-position Petrifilm sampling with mid-size QC labs."
+  },
+  {
+    id: 6,
+    headline: "Indonesian dairy QC labs report agar plate replenishment delays",
+    source: "The Jakarta Post",
+    url: "https://www.thejakartapost.com/",
+    date: "2026-04-05",
+    country: "Indonesia",
+    risk: "High",
+    signal: "agar plate delay",
+    why: "Public industry forum posts and a Jakarta Post feature describe several Indonesian dairy producers experiencing 3–4 week delays on prepared agar plate replenishment from regional distributors.",
+    opportunity: "Dairy QC is a flagship Petrifilm category. Conversion pitch: switch coliform / E. coli / aerobic count plates to Petrifilm to eliminate prepared-media dependency and shrink test turnaround."
+  },
+  {
+    id: 7,
+    headline: "Malaysia petrochemical maintenance window extended at Pengerang",
+    source: "The Edge Malaysia",
+    url: "https://theedgemalaysia.com/",
+    date: "2026-04-02",
+    country: "Malaysia",
+    risk: "Medium",
+    signal: "naphtha disruption",
+    why: "Public filings and trade press confirm an extended maintenance turnaround at Pengerang Integrated Complex, reducing naphtha cracker output for an additional 3 weeks beyond the original schedule.",
+    opportunity: "Reinforces the regional polystyrene tightness narrative. Use as supporting context when discussing supply resilience with Malaysian and Singaporean F&amp;B and pharma QC accounts."
+  },
+  {
+    id: 8,
+    headline: "Singapore biotech cluster signals procurement diversification on consumables",
+    source: "The Straits Times",
+    url: "https://www.straitstimes.com/",
+    date: "2026-03-30",
+    country: "Singapore",
+    risk: "Low",
+    signal: "laboratory consumables shortage",
+    why: "Public statements from biotech industry groups in Singapore indicate a strategic move toward dual-sourcing lab consumables after recent supply-chain shocks; petri dishes and pipette tips named specifically.",
+    opportunity: "Procurement teams open to alternatives are receptive audiences. Petrifilm fits as a category-shift, not just a substitute SKU — frames the conversation around resilience and standardization."
+  },
+  {
+    id: 9,
+    headline: "Philippines food exporters cite microbiology testing bottleneck",
+    source: "Philippine Daily Inquirer",
+    url: "https://www.inquirer.net/",
+    date: "2026-03-28",
+    country: "Philippines",
+    risk: "High",
+    signal: "petri dish shortage",
+    why: "Public reporting from Philippine food export associations highlights a 2–3 month backlog at third-party microbiology labs, with petri dish inventory cited as one constraining factor.",
+    opportunity: "Strong fit for Petrifilm in-house testing pitch — exporters can bring routine indicator organism testing on-site, bypassing third-party lab queues."
+  },
+  {
+    id: 10,
+    headline: "Australia tightens infant formula export microbiological standards",
+    source: "ABC News (Australia)",
+    url: "https://www.abc.net.au/news/",
+    date: "2026-03-25",
+    country: "Australia",
+    risk: "Medium",
+    signal: "microbiology supplies shortage",
+    why: "Updated public guidance on infant formula export microbiology testing is increasing the per-batch number of required indicator tests, raising consumable consumption rates across A&NZ producers.",
+    opportunity: "Infant formula producers are high-precision, audit-driven Petrifilm targets. Highlight standardized, AOAC-validated counts as a compliance plus."
+  },
+  {
+    id: 11,
+    headline: "Korean seaweed processors face QC consumable shortages amid export surge",
+    source: "The Korea Herald",
+    url: "https://www.koreaherald.com/",
+    date: "2026-03-22",
+    country: "Korea",
+    risk: "Medium",
+    signal: "petri dish supply disruption",
+    why: "Public industry coverage notes Korean seaweed exporters scaling QC test volume to keep pace with US and EU demand, while domestic distributors flag delayed petri dish replenishment.",
+    opportunity: "Tactical opportunity: position Petrifilm as a stop-gap and longer-term standard for export-batch microbiology, especially for Salmonella and total plate count."
+  },
+  {
+    id: 12,
+    headline: "China expands lab consumables domestic manufacturing push",
+    source: "Caixin Global",
+    url: "https://www.caixinglobal.com/",
+    date: "2026-03-18",
+    country: "China",
+    risk: "Low",
+    signal: "plastic consumables shortage",
+    why: "Caixin reports new domestic Chinese capacity for sterile plasticware coming online in 2026 and 2027, easing some of the import-reliance concerns flagged in 2024–2025.",
+    opportunity: "Mixed signal: short-term opening for Petrifilm conversions remains, but emphasize differentiated-product positioning (not just supply substitution) for durability against future commodity competition."
+  },
+  {
+    id: 13,
+    headline: "Vietnam coffee exporters report QC capacity strain ahead of harvest",
+    source: "VnExpress International",
+    url: "https://e.vnexpress.net/",
+    date: "2026-03-15",
+    country: "Vietnam",
+    risk: "Medium",
+    signal: "agar plate delay",
+    why: "Public reporting describes Vietnamese coffee exporters bracing for harvest-season QC volumes and reporting tighter availability of prepared agar plates from regional suppliers.",
+    opportunity: "Seasonal urgency creates a natural conversation. Petrifilm reduces prep workload during harvest peaks and supports rapid scale-up without media kitchen expansion."
+  },
+  {
+    id: 14,
+    headline: "Thailand poultry sector responds to Salmonella surveillance update",
+    source: "Reuters",
+    url: "https://www.reuters.com/",
+    date: "2026-03-12",
+    country: "Thailand",
+    risk: "High",
+    signal: "microbiology supplies shortage",
+    why: "Reuters coverage of public Thai DLD updates indicates expanded Salmonella sampling requirements at Thai poultry processing plants, raising routine testing volumes substantially.",
+    opportunity: "Direct match for Petrifilm Salmonella Express. Pitch as a labor and turnaround time reduction — critical when daily test volumes step up."
+  },
+  {
+    id: 15,
+    headline: "Japan beverage industry logs raw material delays through summer",
+    source: "Nikkei Asia",
+    url: "https://asia.nikkei.com/",
+    date: "2026-03-08",
+    country: "Japan",
+    risk: "Medium",
+    signal: "petrochemical disruption",
+    why: "Public Nikkei reporting cites continued raw material lead-time issues across Japan's beverage manufacturing supply chain, with packaging plastics and lab consumables both noted.",
+    opportunity: "Beverage QC labs running yeast/mold and total count workflows are a fit. Petrifilm can be positioned as both a supply-resilience play and a workflow simplification."
+  },
+  {
+    id: 16,
+    headline: "Australian universities flag tightening grant budgets for lab supplies",
+    source: "The Sydney Morning Herald",
+    url: "https://www.smh.com.au/",
+    date: "2026-03-04",
+    country: "Australia",
+    risk: "Low",
+    signal: "laboratory consumables shortage",
+    why: "Public reporting on Australian academic research funding pressures notes labs are reassessing consumable spend, including microbiology workflows.",
+    opportunity: "Lower priority for sales, but useful context. Academic research labs may be open to lower-prep alternatives if total cost-per-test framing is presented clearly."
+  },
+  {
+    id: 17,
+    headline: "Singapore Polytechnic publishes case study on rapid microbial methods",
+    source: "Singapore Polytechnic",
+    url: "https://www.sp.edu.sg/",
+    date: "2026-02-28",
+    country: "Singapore",
+    risk: "Low",
+    signal: "microbiology supplies shortage",
+    why: "Public academic case study compares rapid microbial methods (including dry-rehydratable film) to conventional agar plating, with positive findings for throughput and reproducibility.",
+    opportunity: "Useful third-party reference asset to share during Petrifilm conversion conversations with Singaporean F&amp;B and pharma QC accounts."
+  },
+  {
+    id: 18,
+    headline: "Indonesia naphtha import bill rises on weaker rupiah, refining margins squeezed",
+    source: "Reuters",
+    url: "https://www.reuters.com/",
+    date: "2026-02-24",
+    country: "Indonesia",
+    risk: "Medium",
+    signal: "naphtha disruption",
+    why: "Public commodities coverage notes Indonesian refiners and petrochemical buyers facing higher naphtha import costs, with knock-on effects expected on local plastics manufacturing including labware.",
+    opportunity: "Macroeconomic backdrop reinforces the case for supply diversification in lab consumables. Use as supporting context for Indonesian dairy and food processor pitches."
+  }
+];
+
+/* ===========================================================
+   RENDERING & FILTERING
+   =========================================================== */
+
+const COUNTRIES = [...new Set(SIGNALS.map(s => s.country))].sort();
+const SIGNAL_TYPES = [...new Set(SIGNALS.map(s => s.signal))].sort();
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => document.querySelectorAll(sel);
+
+const state = {
+  search: "",
+  country: "",
+  risk: "",
+  signal: ""
+};
+
+function init() {
+  // populate country dropdown
+  const cf = $("#countryFilter");
+  COUNTRIES.forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    cf.appendChild(opt);
+  });
+  // populate signal dropdown
+  const sf = $("#signalFilter");
+  SIGNAL_TYPES.forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s; opt.textContent = s;
+    sf.appendChild(opt);
+  });
+
+  // events
+  $("#searchInput").addEventListener("input", e => { state.search = e.target.value.trim().toLowerCase(); render(); });
+  cf.addEventListener("change", e => { state.country = e.target.value; render(); });
+  $("#riskFilter").addEventListener("change", e => { state.risk = e.target.value; render(); });
+  sf.addEventListener("change", e => { state.signal = e.target.value; render(); });
+  $("#resetBtn").addEventListener("click", () => {
+    state.search = ""; state.country = ""; state.risk = ""; state.signal = "";
+    $("#searchInput").value = "";
+    cf.value = ""; $("#riskFilter").value = ""; sf.value = "";
+    render();
+  });
+
+  renderHeroStats();
+  render();
+}
+
+function renderHeroStats() {
+  const total = SIGNALS.length;
+  const high = SIGNALS.filter(s => s.risk === "High").length;
+  const med = SIGNALS.filter(s => s.risk === "Medium").length;
+  const countries = new Set(SIGNALS.map(s => s.country)).size;
+
+  $("#heroStats").innerHTML = `
+    <div class="stat">
+      <div class="stat-label">Active signals</div>
+      <div class="stat-value accent">${total}</div>
+      <div class="stat-meta">across APAC</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">High risk</div>
+      <div class="stat-value high">${high}</div>
+      <div class="stat-meta">requires action</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Medium risk</div>
+      <div class="stat-value med">${med}</div>
+      <div class="stat-meta">monitor closely</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Countries</div>
+      <div class="stat-value">${countries}</div>
+      <div class="stat-meta">covered</div>
+    </div>
+  `;
+}
+
+function applyFilters() {
+  return SIGNALS.filter(s => {
+    if (state.country && s.country !== state.country) return false;
+    if (state.risk && s.risk !== state.risk) return false;
+    if (state.signal && s.signal !== state.signal) return false;
+    if (state.search) {
+      const q = state.search;
+      const hay = (s.headline + " " + s.source + " " + s.signal + " " + s.country + " " + s.why + " " + s.opportunity).toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b) => new Date(b.date) - new Date(a.date));
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).toUpperCase();
+}
+
+function chipsHtml() {
+  const chips = [];
+  if (state.country) chips.push(`<span class="chip"><strong>Country</strong> ${state.country}</span>`);
+  if (state.risk) chips.push(`<span class="chip"><strong>Risk</strong> ${state.risk}</span>`);
+  if (state.signal) chips.push(`<span class="chip"><strong>Signal</strong> ${state.signal}</span>`);
+  if (state.search) chips.push(`<span class="chip"><strong>Search</strong> "${state.search}"</span>`);
+  return chips.join("");
+}
+
+function render() {
+  const filtered = applyFilters();
+  const grid = $("#cardsGrid");
+  const af = $("#activeFilters");
+
+  af.innerHTML = chipsHtml() + `<div class="results-count">Showing ${filtered.length} of ${SIGNALS.length}</div>`;
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty"><h4>No matching signals</h4><p>Try clearing filters or broadening the search.</p></div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map((s, i) => `
+    <article class="card" style="animation-delay: ${Math.min(i*40, 400)}ms;">
+      <div class="card-idx">№ ${String(s.id).padStart(3,"0")}</div>
+      <div class="card-top">
+        <span class="risk-badge risk-${s.risk.toLowerCase()}">${s.risk} risk</span>
+        <span class="card-meta"><span class="country">${s.country}</span></span>
+      </div>
+      <h3>${escapeHtml(s.headline)}</h3>
+      <div class="card-source">
+        <span class="src-name">${escapeHtml(s.source)}</span>
+        <span class="dot">·</span>
+        <span>${fmtDate(s.date)}</span>
+      </div>
+      <span class="signal-tag">${escapeHtml(s.signal)}</span>
+      <div class="card-section">
+        <div class="card-section-label">Why it matters</div>
+        <p>${escapeHtml(s.why)}</p>
+      </div>
+      <div class="card-section opportunity">
+        <div class="card-section-label">Petrifilm opportunity</div>
+        <p>${escapeHtml(s.opportunity)}</p>
+      </div>
+      <div class="card-cta">
+        <a class="open-source-btn" href="${s.url}" target="_blank" rel="noopener noreferrer">
+          Open Source
+          <span class="arrow">↗</span>
+        </a>
+      </div>
+    </article>
+  `).join("");
+}
+
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+// Boot
+init();
+</script>
+
+</body>
+</html>
