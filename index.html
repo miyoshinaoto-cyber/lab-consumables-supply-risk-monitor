@@ -1075,6 +1075,61 @@
   .refresh-btn.is-loading .icon { display: none; }
   @keyframes spin { to { transform: rotate(360deg); } }
 
+  .refresh-btn-secondary {
+    border-color: var(--line);
+    color: var(--ink-dim);
+    background: transparent;
+  }
+  .refresh-btn-secondary:hover:not(:disabled) {
+    border-color: var(--accent-2);
+    color: var(--accent-2);
+  }
+
+  /* Bootstrap-from-RSS label, shown above the cards in Sample mode
+     once the user has built sample data from a real RSS refresh. */
+  .sample-bootstrap-label {
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    border-left: 2px solid var(--accent-2);
+    background: rgba(124,224,255,0.04);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent-2);
+    letter-spacing: 0.04em;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .sample-bootstrap-label.is-hidden { display: none; }
+  .sample-bootstrap-label #sampleDataMeta {
+    color: var(--ink-mute);
+    letter-spacing: 0.02em;
+    font-weight: 400;
+  }
+
+  /* Empty-sample prompt — shown when sample data has not yet been bootstrapped */
+  .empty-sample-prompt {
+    border: 1px dashed var(--line-2);
+    padding: 32px 24px;
+    text-align: center;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.012);
+    margin: 12px 0;
+  }
+  .empty-sample-prompt h4 {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 500;
+    margin: 0 0 12px;
+    color: var(--ink);
+  }
+  .empty-sample-prompt p {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--ink-mute);
+    line-height: 1.6;
+    max-width: 520px;
+    margin: 0 auto;
+  }
+
   .rss-warning {
     margin-bottom: 16px;
     padding: 11px 14px;
@@ -1093,6 +1148,12 @@
     flex-shrink: 0;
   }
   .rss-warning.is-hidden { display: none; }
+  .rss-warning.is-info {
+    border-color: rgba(124,224,255,0.4);
+    background: rgba(124,224,255,0.06);
+    color: var(--accent-2);
+  }
+  .rss-warning.is-info::before { content: "ℹ"; }
 
   .rss-note {
     font-family: var(--mono);
@@ -1365,9 +1426,17 @@
       <span class="spinner" aria-hidden="true"></span>
       Refresh
     </button>
+    <button id="rebuildSample" class="refresh-btn refresh-btn-secondary" type="button"
+            aria-label="Rebuild Sample from latest RSS results">
+      <span class="icon">⤓</span>
+      Rebuild Sample from RSS
+    </button>
   </div>
   <div class="rss-note">
-    RSS mode monitors 5 countries: Thailand, Japan, Korea, China, Australia. Results are fetched from open / public sources. Daily refresh is browser-based and uses cached data for up to 24 hours.
+    Lab Plastic Supply Chain Risk Monitor — open-source signals across 5 countries (Thailand, Japan, Korea, China, Australia). Daily refresh, browser-cached for 24h.
+  </div>
+  <div id="sampleDataLabel" class="sample-bootstrap-label is-hidden">
+    Sample Data is based on real RSS results <span id="sampleDataMeta"></span>
   </div>
   <label class="debug-toggle" id="showFilteredWrapper" hidden>
     <input type="checkbox" id="showFilteredToggle" />
@@ -1431,7 +1500,7 @@
 
   <div class="source-disclaimer">
     <svg class="source-disclaimer-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-    <span>Source links are intended to point to public article / source pages. Some sample links may require publisher access or may be updated by the publisher. Where an article-level URL was not available, the button links to the publisher homepage and is visually flagged as a fallback.</span>
+    <span>Source links point to article-level URLs or Google News article links. Where no article-level URL is available, the Open Source button is disabled rather than falling back to a publisher homepage.</span>
   </div>
 
   <footer>
@@ -1478,98 +1547,42 @@
    supply-risk signals across APAC. No paid APIs, no API keys.
    =========================================================== */
 const LOCAL_LANGUAGE_KEYWORDS = {
+  // Spec Part 6: limit to 2 strongest local-language keywords per country.
+  // The Google News locale (hl/gl/ceid) is what makes results local-language —
+  // see RSS_LOCALE_HINTS below.
   Thailand: {
-    languages: ["Thai", "English"],
+    languages: ["Thai"],
     keywords: [
       "จานเพาะเชื้อ ขาดแคลน",
-      "จานเพาะเชื้อ ล่าช้า",
-      "จานเพาะเชื้อ ส่งมอบล่าช้า",
-      "อุปกรณ์ห้องแล็บ ขาดแคลน",
-      "อุปกรณ์ห้องปฏิบัติการ ขาดแคลน",
-      "วัสดุสิ้นเปลืองห้องแล็บ ขาดแคลน",
-      "วัสดุสิ้นเปลืองห้องปฏิบัติการ ล่าช้า",
-      "อุปกรณ์ตรวจจุลชีววิทยา ขาดแคลน",
-      "petri dish shortage Thailand",
-      "agar plate delay Thailand",
-      "microbiology supplies shortage Thailand",
-      "sterile plasticware shortage Thailand",
-      "petri dish supply disruption Thailand"
+      "ปิโตรเคมี ขาดแคลน"
     ]
   },
   Japan: {
-    languages: ["Japanese", "English"],
+    languages: ["Japanese"],
     keywords: [
       "ペトリ皿 不足",
-      "ペトリ皿 納期遅延",
-      "ペトリ皿 供給停止",
-      "シャーレ 不足",
-      "シャーレ 納期遅延",
-      "培地 遅延",
-      "寒天培地 不足",
-      "微生物検査 資材 不足",
-      "微生物検査 消耗品 不足",
-      "検査用 消耗品 納期遅延",
-      "実験用 消耗品 不足",
-      "petri dish shortage Japan",
-      "agar plate delay Japan",
-      "microbiology supplies shortage Japan",
-      "sterile plasticware shortage Japan",
-      "petri dish supply disruption Japan"
+      "石化 供給 不安"
     ]
   },
   Korea: {
-    languages: ["Korean", "English"],
+    languages: ["Korean"],
     keywords: [
       "페트리 접시 부족",
-      "페트리 접시 납기 지연",
-      "페트리 접시 공급 차질",
-      "배양 접시 부족",
-      "배양 접시 공급 지연",
-      "한천 배지 부족",
-      "한천 배지 납기 지연",
-      "미생물 검사 소모품 부족",
-      "실험실 소모품 부족",
-      "멸균 플라스틱 소모품 부족",
-      "petri dish shortage Korea",
-      "agar plate delay Korea",
-      "microbiology supplies shortage Korea",
-      "sterile plasticware shortage Korea",
-      "petri dish supply disruption Korea"
+      "석유화학 공급 불안"
     ]
   },
   China: {
-    languages: ["Chinese", "English"],
+    languages: ["Chinese"],
     keywords: [
       "培养皿 短缺",
-      "培养皿 交货 延迟",
-      "培养皿 供应 中断",
-      "皮氏培养皿 短缺",
-      "皮氏培养皿 供应 延迟",
-      "琼脂平板 延迟",
-      "琼脂培养基 短缺",
-      "微生物检测 耗材 短缺",
-      "实验室耗材 短缺",
-      "无菌塑料耗材 短缺",
-      "实验室塑料耗材 供应 中断",
-      "petri dish shortage China",
-      "agar plate delay China",
-      "microbiology supplies shortage China",
-      "sterile plasticware shortage China",
-      "petri dish supply disruption China"
+      "石化 供应 紧张"
     ]
   },
   Australia: {
     languages: ["English"],
     keywords: [
-      "petri dish shortage Australia",
-      "petri dish delay Australia",
-      "petri dish supply disruption Australia",
-      "agar plate delay Australia",
-      "agar plate shortage Australia",
-      "microbiology supplies shortage Australia",
-      "sterile plasticware shortage Australia",
-      "laboratory consumables shortage Australia",
-      "microbiology consumables supply disruption Australia"
+      "petri dish shortage",
+      "petrochemical supply disruption"
     ]
   }
 };
@@ -1614,13 +1627,13 @@ const RSS_CONFIG = {
     China:       { hl: "zh-CN", gl: "CN", ceid: "CN:zh-Hans" },
     Australia:   { hl: "en-AU", gl: "AU", ceid: "AU:en" }
   },
-  cacheKey: "lrm_rss_cache_v2",
+  cacheKey: "lrm_rss_cache_v3",
   cacheTtlMs: 24 * 60 * 60 * 1000,           // 24h daily refresh
-  topKeywordsPerCountry: 2,                   // performance guardrail (5 countries × 2 = 10 feeds)
-  maxFeedsPerRefresh: 10,                     // performance guardrail
+  topKeywordsPerCountry: 2,                   // Spec Part 7: max 2 keywords per country
+  maxFeedsPerRefresh: 10,                     // Spec Part 7: max 10 feeds total
   perFeedTimeoutMs: 9000,                     // network timeout per feed
-  maxItemsPerFeed: 8,                         // cap items pulled from one feed
-  maxSignalsAfterDedupe: 50                   // performance guardrail on rendered total
+  maxItemsPerFeed: 10,                        // cap items pulled from one feed
+  maxSignalsAfterDedupe: 50                   // Spec Part 7: max 50 items after dedupe
 };
 
 /* Risk and signal-type heuristics (multilingual). */
@@ -1665,275 +1678,184 @@ const SIGNAL_TYPE_RULES = [
    Articles failing the gate are not displayed.
    =========================================================== */
 const RELEVANCE_FILTERS = {
-  // ----- Direct-signal product / consumable terms (multilingual) -----
-  // These are the things our customers actually buy.
-  product: [
+  // ============================================================
+  // 3-TIER MONITORING SCOPE  (Part 1 of the spec)
+  // ------------------------------------------------------------
+  // Tier 1 — Direct: things customers actually buy from us.
+  // Tier 2 — Adjacent: nearby SKUs / labware we don't sell directly
+  //                    but which signal pressure on the same supply chain.
+  // Tier 3 — Upstream: petrochemical feedstocks and polymer raw materials
+  //                    that ultimately determine lab-plastic availability.
+  // Each tier has its own term list. classifySignal scores against all
+  // three and returns the strongest matching tier.
+  // ============================================================
+  tier1Direct: [
     "petri dish", "petri dishes",
     "agar plate", "agar plates",
+    "sterile plasticware",
     "microbiology consumable", "microbiology consumables",
     "microbiology supplies", "microbiology supply",
-    "sterile plasticware", "laboratory plasticware", "lab plasticware",
-    "lab consumable", "lab consumables", "laboratory consumable", "laboratory consumables",
-    "lab supplies", "lab supply", "laboratory supplies", "laboratory supply",
-    "qc consumable", "qc consumables", "qc supplies",
-    "pipette tip", "pipette tips",
     // local-language equivalents
-    "ペトリ皿", "シャーレ", "実験用 消耗品", "検査用 消耗品", "微生物検査 消耗品", "微生物検査 資材",
-    "培养皿", "皮氏培养皿", "实验室耗材", "微生物检测 耗材", "实验室塑料耗材",
-    "페트리 접시", "배양 접시", "실험실 소모품", "미생물 검사 소모품",
-    "จานเพาะเชื้อ", "วัสดุสิ้นเปลืองห้องแล็บ", "วัสดุสิ้นเปลืองห้องปฏิบัติการ", "อุปกรณ์ตรวจจุลชีววิทยา"
+    "ペトリ皿", "シャーレ", "微生物検査 消耗品", "微生物検査 資材",
+    "培养皿", "皮氏培养皿", "微生物检测 耗材",
+    "페트리 접시", "배양 접시", "미생물 검사 소모품",
+    "จานเพาะเชื้อ", "อุปกรณ์ตรวจจุลชีววิทยา"
+  ],
+  tier2Adjacent: [
+    "lab consumable", "lab consumables",
+    "laboratory consumable", "laboratory consumables",
+    "lab supplies", "laboratory supplies", "qc supplies", "qc consumable", "qc consumables",
+    "laboratory plasticware", "lab plasticware", "single-use lab plastics", "single use lab plastics",
+    "pipette tip", "pipette tips",
+    "ラボ 消耗品", "実験室 消耗品", "実験用 プラスチック", "ラボ 用品",
+    "实验室耗材", "实验室塑料耗材", "实验室 用品",
+    "실험실 소모품", "실험용 플라스틱",
+    "วัสดุสิ้นเปลืองห้องแล็บ", "วัสดุสิ้นเปลืองห้องปฏิบัติการ"
+  ],
+  tier3Upstream: [
+    "naphtha",
+    "petrochemical", "petrochemicals",
+    "resin", "resins",
+    "polymer", "polymers",
+    "polystyrene",
+    "polypropylene",
+    "plastic raw material", "plastic raw materials",
+    "plastic feedstock", "plastic feedstocks",
+    "plastic molding", "plastic moulding",
+    // additional technical synonyms commonly seen in petrochem reporting
+    "ethylene", "styrene", "monomer", "olefin", "olefins", "cracker", "crackers", "feedstock",
+    "ナフサ", "石化", "石油化学", "ポリスチレン", "ポリプロピレン", "樹脂", "ポリマー",
+    "石脑油", "石化", "石油化工", "聚苯乙烯", "聚丙烯", "树脂", "聚合物",
+    "나프타", "석유화학", "폴리스티렌", "폴리프로필렌", "수지", "폴리머"
   ],
 
-  // ----- Direct-signal disruption / pressure terms (multilingual) -----
-  disruption: [
+  // ============================================================
+  // SUPPLY-SIDE SIGNAL TERMS  (Part 2)
+  // ------------------------------------------------------------
+  // Used across all three tiers — the same terms qualify as the
+  // "supply" half of a tier+supply pair.
+  // ============================================================
+  supply: [
     "shortage", "shortages",
     "delay", "delayed", "delays",
-    "disruption", "disruptions", "disrupted", "disrupt",
-    "halted", "suspended", "suspension",
+    "lead time", "lead times", "lead-time",
+    "supply disruption", "supply disruptions",
+    "supply issue", "supply issues",
+    "supply constraint", "supply constraints",
     "backorder", "back order", "back-order", "backlog",
-    "unavailable", "supply issue", "supply issues", "supply pressure", "supply constraint", "supply constraints",
-    "lead time", "lead times", "lead-time", "out of stock",
-    "outage", "outages",
-    "tighten", "tightens", "tightening", "tightened", "tighter",
-    "replenishment", "replenish",
-    "scarcity", "scarce",
-    "budget pressure", "budget pressures", "budget cut", "budget cuts",
-    "tightening grant", "tightening budgets",
-    // Capacity moves — both shortage signals AND mitigating capacity additions count as supply news
-    "capacity expansion", "capacity push", "capacity coming online",
-    "manufacturing push", "domestic manufacturing", "new capacity", "coming online",
-    // local-language equivalents
-    "不足", "納期遅延", "供給停止", "遅延", "リードタイム", "在庫切れ",
-    "短缺", "供应 中断", "延迟", "交货 延迟", "中断",
-    "부족", "지연", "공급 차질", "납기 지연",
-    "ขาดแคลน", "ล่าช้า", "ส่งมอบล่าช้า"
-  ],
-
-  // ----- Upstream feedstock / petrochemical terms -----
-  feedstock: [
-    "polystyrene", "naphtha", "petrochemical", "petrochemicals",
-    "resin", "resins", "ethylene", "styrene", "cracker", "crackers",
-    "olefin", "olefins", "monomer", "polypropylene",
-    "ナフサ", "ポリスチレン", "石化", "石油化学",
-    "聚苯乙烯", "石脑油", "石化", "石油化工",
-    "폴리스티렌", "나프타", "석유화학"
-  ],
-
-  // ----- Upstream pressure terms (broader than direct-disruption) -----
-  upstreamPressure: [
-    "shortage", "delay", "delayed", "disruption", "halted", "suspended",
-    "tighten", "tightens", "tightening", "tightened", "tighter",
+    "unavailable", "out of stock",
+    "plant shutdown", "plant closure", "plant closures",
+    "production cut", "production cuts", "production halt",
+    "capacity reduction", "capacity reductions", "capacity cut",
+    "price surge", "price spike", "price spikes", "price pressure", "price hike",
+    "tight supply", "supply tightness", "tightening", "tightens", "tighten",
     "restructuring", "restructure", "rationalization", "rationalisation",
-    "rate cut", "rate cuts", "operating rate", "turnaround", "shutdown", "shut down",
-    "outage", "outages", "force majeure", "maintenance",
-    "congestion", "port congestion", "shipping delay",
-    "export delay", "export schedule",
-    "supply uncertainty", "supply tightness", "tight supply",
-    "import cost", "import bill",
-    "capacity reduction", "capacity cut",
-    "feedstock", "feedstocks"
+    "uncertainty", "uncertain",
+    "volatility", "volatile",
+    "disruption", "disruptions", "disrupted",
+    "halted", "suspended", "suspension",
+    "outage", "outages", "force majeure",
+    // multilingual coverage (most common headline tokens)
+    "不足", "供給停止", "遅延", "リードタイム", "在庫切れ", "供給 不安", "減産", "停止", "シャットダウン",
+    "短缺", "供应 中断", "延迟", "停产", "停工", "供应 紧张", "不确定", "减产",
+    "부족", "지연", "공급 차질", "공급 불안", "감산", "가동 중단", "불확실",
+    "ขาดแคลน", "ล่าช้า", "ส่งมอบล่าช้า", "ขาดแคลน", "ปิด โรงงาน", "ลด กำลังการผลิต"
   ],
 
-  // ----- Lab / consumable context terms (used to confirm an upstream signal touches our space) -----
-  labContext: [
-    "lab", "laboratory", "labs", "laboratories",
-    "consumable", "consumables", "plasticware",
-    "qc", "quality control", "microbiology", "microbiological", "micro testing",
-    "qc lab", "qc labs",
-    // Implicit lab/QC framing — testing-volume framing in food/poultry/dairy contexts
-    // is, in practice, talking about microbiology QC labs even if the article doesn't
-    // say "lab" explicitly.
-    "sampling requirement", "sampling requirements",
-    "testing volume", "testing volumes",
-    "testing scope", "test volume", "test volumes",
-    "processing plant", "processing plants",
-    "surveillance", "inspection", "inspections",
-    "ラボ", "実験室", "消耗品",
-    "实验室", "耗材",
-    "실험실", "소모품",
-    "ห้องแล็บ", "ห้องปฏิบัติการ"
-  ],
-
-  // ----- Demand-driven regulatory pressure (testing-scope expansions) -----
-  // Only counts when paired with a labContext term — otherwise we'd let in
-  // pure-disease-outbreak articles which Part 9 forbids.
-  regulatoryDemand: [
-    "expand testing", "expanded testing", "expands testing", "expand microbiological",
-    "testing scope", "testing requirement", "testing requirements",
-    "surveillance update", "surveillance program", "surveillance programme",
-    "sampling requirement", "sampling requirements",
-    "residue monitoring", "monitoring program", "monitoring programme",
-    "expand microbiological testing", "microbiological criteria",
-    "fda expands", "fda update", "regulation 2025", "regulation 2024",
-    "tighter standards", "tighter criteria",
-    "raising routine testing volumes", "raising testing", "test volume", "test volumes",
-    "audit-driven", "audit driven"
-  ],
-
-  // ----- Hard exclusions (Part 9) — these tokens disqualify regardless of other matches -----
-  // Note: NOT "research" by itself, because "research lab" is legitimate. We use phrase-level
-  // exclusions so genuine supply news isn't accidentally killed by ambient academic vocabulary.
+  // ============================================================
+  // STRICT EXCLUSIONS  (Part 4)
+  // ------------------------------------------------------------
+  // Phrase-level so we don't accidentally kill legitimate supply
+  // news that happens to share single-word vocabulary with academia.
+  // ============================================================
   exclude: [
-    "research paper", "research papers", "academic paper", "academic study",
+    // Academic / research
+    "research paper", "research papers",
+    "academic paper", "academic study", "academic studies",
     "peer-reviewed", "peer reviewed",
     "arxiv", "preprint", "doi.org",
+    // AI / simulation
     " ai ", "artificial intelligence", "machine learning", "deep learning",
     "simulation study", "monte carlo", "computational model", "computational modelling",
-    "sustainability report", "sustainability initiative", "sustainable packaging",
-    "recycling program", "recycling initiative", "recycled plastic",
+    // Tissue / biotech research areas that share lab vocabulary but aren't lab plastics
+    "organoid", "organoids", "brain cell", "brain cells",
+    "lab-grown meat", "lab grown meat", "cultured meat", "cell-cultured meat",
+    // Sports / abuse / unrelated
+    "football", "soccer", "basketball", "olympics",
+    "sexual abuse", "sexual assault", "domestic abuse",
+    "celebrity", "tabloid",
+    // Plastic-waste / recycling / environmental-only
     "plastic waste", "single-use plastic", "marine plastic", "ocean plastic",
-    "environmental impact", "carbon footprint", "eco-friendly",
-    "theoretical model", "theoretical framework",
-    // disease-outbreak / infection-rise framing without supply context
+    "recycling program", "recycling initiative", "recycled plastic",
+    "sustainability report", "sustainability initiative", "sustainable packaging",
+    "environmental impact", "carbon footprint", "eco-friendly", "greenwashing",
+    // Disease / testing-demand only (no supply context)
     "outbreak update", "case count", "infection rate", "infection rates",
-    "epidemic spread", "pandemic spread"
+    "epidemic spread", "pandemic spread", "death toll"
   ],
 
   // ----- Cap on rendered RSS items -----
-  maxRendered: 30,
-
-  // ===========================================================
-  // RELAXED-MODE TERMS (debug spec, Parts 6 + 7)
-  // ----------------------------------------------------------
-  // These broader sets are used when relaxedMode is enabled.
-  // Relaxed acceptance is:
-  //    A. product term + supply term     (Direct-ish signal)
-  //    B. upstream term + supply term    (Upstream-ish signal)
-  // The strict rules above still apply first; if they match,
-  // the result keeps its strict label (Direct/Upstream + High/Medium).
-  // Otherwise, relaxed mode may upgrade a Filtered result to Medium.
-  // ===========================================================
-  relaxedUpstream: [
-    "naphtha", "petrochemical", "petrochemicals", "resin", "resins",
-    "polystyrene", "plastic raw material", "plastic feedstock",
-    "polymer", "polymers", "plastic supply",
-    "ナフサ", "ポリスチレン", "石化",
-    "聚苯乙烯", "石脑油", "石化",
-    "폴리스티렌", "나프타", "석유화학"
-  ],
-  relaxedSupply: [
-    "shortage", "shortages",
-    "delay", "delayed", "delays",
-    "disruption", "disruptions",
-    "supply issue", "supply issues", "supply risk", "supply risks",
-    "price surge", "price spike", "price spikes", "price hike",
-    "production cut", "production cuts",
-    "plant shutdown", "plant closure", "plant closures",
-    "capacity reduction", "capacity reductions", "capacity cut",
-    "restructuring", "restructure",
-    "uncertainty",
-    // multilingual versions of the most common ones
-    "不足", "遅延", "停止",
-    "短缺", "延迟", "中断", "停产",
-    "부족", "지연", "중단",
-    "ขาดแคลน", "ล่าช้า"
-  ]
+  maxRendered: 50  // Part 7: max 50 items after deduplication
 };
 
 /* Application-level debug flags (mutable at runtime via UI toggles). */
 const DEBUG_FLAGS = {
-  // When true: classifySignal applies the relaxed A∨B rule from Part 5 of the
-  // debugging spec. A relaxed match produces a Medium-score signal even when
-  // the strict gate would have rejected it.
-  relaxedRss: true,
-  // When true: filtered RSS items are kept in state and shown in a collapsed
-  // "Filtered RSS items" debug section beneath the main grid.
+  // Show the "Filtered RSS items" debug section beneath the main grid.
   showFilteredRss: false,
-  // When true: exclusion-term hits are reported as Filtered with a clear
-  // "Excluded because: <term>" reason, but classification is otherwise still
-  // attempted so we can see whether the exclusion was actually justified.
-  // (Set to false to apply exclusions as a hard pre-filter.)
-  softExclusion: true
+  // Soft exclusion: still report exclusion clearly but populate the term arrays
+  // so the debug surface can show what got hit.
+  softExclusion: true,
+  // Fallback rule (Part 3): if zero relevant signals, promote the top 3 best-
+  // scoring filtered candidates to Weak Signals so RSS mode is never empty.
+  fallbackTopWeak: 3
 };
 
 /* ===========================================================
-   SHARED RELEVANCE CLASSIFIER
+   SHARED RELEVANCE CLASSIFIER  (Parts 3 + 4)
    --------------------------------------------------------
-   classifySignal(articleText) is used by BOTH sample data and
-   RSS data so the categories that pass for sample also pass
-   for RSS. The decision tree:
+   classifySignal(articleText) — used by BOTH RSS data and the
+   bootstrapped Sample data so categories that pass for one
+   pass for the other.
 
-     1. Exclusion check (research-paper / AI / sustainability /
-        plastic-waste / pure outbreak framing) → Filtered
-     2. Direct Signal:
-          product term  +  disruption term
-          → High if "petri dish" + strong disruption co-occur
-          → Medium otherwise
-     3. Upstream Signal:
-          (a) feedstock + upstream-pressure term  (e.g. naphtha + restructuring)
-          (b) feedstock + lab-context              (e.g. polystyrene + plasticware)
-          (c) port/logistics congestion + chemical/resin context
-          (d) regulatory testing-demand expansion + lab/consumable context
-          → Medium
-     4. Otherwise → Filtered
+   Decision ladder:
+     1. Hard exclusion?              → Filtered (with reason)
+     2. Tier 1 + supply?             → Direct Signal
+     3. Tier 2 + supply?             → Adjacent Signal
+     4. Tier 3 + supply?             → Upstream Signal
+     5. Tier 1 / 2 / 3 alone?        → Weak Signal
+     6. Otherwise                    → Filtered
+
+   The Weak Signal tier is critical: real-world Google News headlines
+   often mention a tier term without an explicit supply verb. We keep
+   them because the spec's fallback rule (Part 3) promotes the top N
+   weak signals when the relevant pool is empty.
    =========================================================== */
-/**
- * Classify an article into Direct / Upstream / Filtered with full transparency.
- *
- * Returns a *complete* breakdown so the debug UI can show exactly what
- * matched (or didn't):
- *   {
- *     relevanceType:    "Direct Signal" | "Upstream Signal" | "Filtered",
- *     relevanceScore:   "High" | "Medium" | "Filtered",
- *     matchedProductTerms:   string[],
- *     matchedSupplyTerms:    string[],   // strict + relaxed disruption hits
- *     matchedUpstreamTerms:  string[],   // strict + relaxed upstream hits
- *     matchedRegulatoryTerms: string[],
- *     matchedLabContextTerms: string[],
- *     exclusionTerms:        string[],
- *     reason:                string
- *   }
- */
-/**
- * Shared relevance classifier — applied to BOTH Sample Data (via getRelevance)
- * and RSS Data (via rssItemToSignal). The classification ladder:
- *
- *   Direct Signal   — product term + supply / disruption term
- *                       High   if "petri dish" + a strong disruption verb
- *                       Medium otherwise
- *   Upstream Signal — feedstock / upstream term + supply term       (Medium)
- *                     · OR feedstock + lab/consumable context        (Medium)
- *                     · OR port/logistics congestion + chemical      (Medium)
- *                     · OR regulatory testing-demand + lab context   (Medium)
- *   Weak Signal     — domain-related but lower-confidence:           (Low)
- *                     · product term alone, no supply verb yet
- *                     · upstream term alone, no supply / lab context yet
- *                     · regulatory / surveillance term alone in food-safety domain
- *   Filtered        — hits exclusion list, or no relevant terms
- *
- * Returns a complete breakdown object so the debug surface can show exactly
- * which categories matched (or didn't):
- *
- *   {
- *     relevanceType:           "Direct Signal" | "Upstream Signal" | "Weak Signal" | "Filtered",
- *     relevanceScore:          "High" | "Medium" | "Low" | "Filtered",
- *     matchedProductTerms:     string[],
- *     matchedSupplyTerms:      string[],
- *     matchedUpstreamTerms:    string[],
- *     matchedRegulatoryTerms:  string[],
- *     matchedLabContextTerms:  string[],
- *     exclusionTerms:          string[],
- *     reason:                  string
- *   }
- */
 function classifySignal(articleText) {
   const t = (articleText || "").toLowerCase();
   const F = RELEVANCE_FILTERS;
   const findAll = (list) => list.filter(x => t.includes(x.toLowerCase()));
 
   // Always compute every match so the debug surface has full data
-  const matchedProductTerms     = findAll(F.product);
-  const matchedSupplyStrict     = findAll(F.disruption);
-  const matchedSupplyRelaxed    = findAll(F.relaxedSupply);
-  const matchedSupplyTerms      = Array.from(new Set([...matchedSupplyStrict, ...matchedSupplyRelaxed]));
-  const matchedUpstreamStrict   = findAll(F.feedstock);
-  const matchedUpstreamRelaxed  = findAll(F.relaxedUpstream);
-  const matchedUpstreamTerms    = Array.from(new Set([...matchedUpstreamStrict, ...matchedUpstreamRelaxed]));
-  const matchedRegulatoryTerms  = findAll(F.regulatoryDemand);
-  const matchedLabContextTerms  = findAll(F.labContext);
-  const exclusionTerms          = findAll(F.exclude);
+  const matchedTier1Terms    = findAll(F.tier1Direct);
+  const matchedTier2Terms    = findAll(F.tier2Adjacent);
+  const matchedTier3Terms    = findAll(F.tier3Upstream);
+  const matchedSupplyTerms   = findAll(F.supply);
+  const exclusionTerms       = findAll(F.exclude);
+
+  // For backward compat with the existing debug UI, we also emit:
+  // matchedProductTerms     = tier1 ∪ tier2
+  // matchedUpstreamTerms    = tier3
+  const matchedProductTerms    = Array.from(new Set([...matchedTier1Terms, ...matchedTier2Terms]));
+  const matchedUpstreamTerms   = matchedTier3Terms.slice();
+  // matchedRegulatoryTerms / matchedLabContextTerms are kept for UI compat
+  // but populated empty since the new classifier doesn't use them as gates.
+  const matchedRegulatoryTerms = [];
+  const matchedLabContextTerms = [];
 
   const breakdown = {
+    matchedTier1Terms,
+    matchedTier2Terms,
+    matchedTier3Terms,
     matchedProductTerms,
     matchedSupplyTerms,
     matchedUpstreamTerms,
@@ -1949,107 +1871,86 @@ function classifySignal(articleText) {
     });
   }
 
-  // 1. Hard exclusions — surface them clearly so we can audit the decision
+  // ---- 1. Hard exclusions ----
   if (exclusionTerms.length > 0) {
-    if (!DEBUG_FLAGS.softExclusion) {
-      return Object.assign({}, breakdown, {
-        relevanceType: "Filtered", relevanceScore: "Filtered",
-        reason: 'Excluded because: "' + exclusionTerms[0].trim() + '"'
-      });
-    }
+    const head = exclusionTerms[0].trim();
+    const more = exclusionTerms.length > 1 ? " (+" + (exclusionTerms.length - 1) + " more)" : "";
     return Object.assign({}, breakdown, {
       relevanceType: "Filtered", relevanceScore: "Filtered",
-      reason: 'Excluded because: "' + exclusionTerms[0].trim() + '"' +
-              (exclusionTerms.length > 1 ? ' (+' + (exclusionTerms.length - 1) + ' more)' : '')
+      reason: 'Excluded because: "' + head + '"' + more
     });
   }
 
-  const productHit    = matchedProductTerms[0]    || null;
-  const upstreamHit   = matchedUpstreamTerms[0]   || null;
-  const supplyHit     = matchedSupplyTerms[0]     || null;
-  const regDemandHit  = matchedRegulatoryTerms[0] || null;
-  const labCtxHit     = matchedLabContextTerms[0] || null;
+  const tier1Hit  = matchedTier1Terms[0]  || null;
+  const tier2Hit  = matchedTier2Terms[0]  || null;
+  const tier3Hit  = matchedTier3Terms[0]  || null;
+  const supplyHit = matchedSupplyTerms[0] || null;
 
-  // ---- 2. Direct Signal — product + supply ----
-  if (productHit && supplyHit) {
-    const PETRI_TERMS = ["petri dish", "petri dishes", "ペトリ皿", "シャーレ",
-                         "培养皿", "皮氏培养皿", "페트리 접시", "배양 접시", "จานเพาะเชื้อ"];
-    const STRONG_DISRUPTION = ["shortage", "delay", "disruption", "halted", "suspended",
-                               "供給停止", "短缺", "不足", "ขาดแคลน", "ล่าช้า", "부족"];
-    const hasPetri  = PETRI_TERMS.some(p => t.includes(p.toLowerCase()));
-    const hasStrong = STRONG_DISRUPTION.some(d => t.includes(d.toLowerCase()));
+  // ---- 2. Direct Signal (Tier 1 + supply) ----
+  if (tier1Hit && supplyHit) {
+    // High score: petri dish + a strong disruption verb together.
+    const STRONG = ["shortage", "delay", "supply disruption", "halted", "suspended",
+                    "供給停止", "短缺", "不足", "ขาดแคลน", "ล่าช้า", "부족"];
+    const PETRI  = ["petri dish", "petri dishes", "ペトリ皿", "シャーレ",
+                    "培养皿", "皮氏培养皿", "페트리 접시", "배양 접시", "จานเพาะเชื้อ"];
+    const hasStrong = STRONG.some(d => t.includes(d.toLowerCase()));
+    const hasPetri  = PETRI.some(p => t.includes(p.toLowerCase()));
     if (hasPetri && hasStrong) {
       return Object.assign({}, breakdown, {
         relevanceType: "Direct Signal", relevanceScore: "High",
-        reason: "petri dish + strong disruption term"
+        reason: "Tier 1 (petri dish) + strong supply disruption term"
       });
     }
     return Object.assign({}, breakdown, {
       relevanceType: "Direct Signal", relevanceScore: "Medium",
-      reason: 'product "' + productHit + '" + supply "' + supplyHit + '"'
+      reason: 'Tier 1 "' + tier1Hit + '" + supply "' + supplyHit + '"'
     });
   }
 
-  // ---- 3a. Upstream Signal — feedstock/upstream + supply ----
-  if (upstreamHit && supplyHit) {
+  // ---- 3. Adjacent Signal (Tier 2 + supply) ----
+  if (tier2Hit && supplyHit) {
     return Object.assign({}, breakdown, {
-      relevanceType: "Upstream Signal", relevanceScore: "Medium",
-      reason: 'upstream "' + upstreamHit + '" + supply "' + supplyHit + '"'
-    });
-  }
-  // 3b. Upstream Signal — feedstock + lab/consumable context (no explicit supply word needed)
-  if (upstreamHit && (labCtxHit || productHit)) {
-    return Object.assign({}, breakdown, {
-      relevanceType: "Upstream Signal", relevanceScore: "Medium",
-      reason: 'upstream "' + upstreamHit + '" with lab / consumable context'
-    });
-  }
-  // 3c. Logistics congestion + chemical/resin reference
-  const LOGISTICS = ["port congestion", "congestion", "shipping delay", "export schedule", "export delay"];
-  const CHEM_REFS = ["chemical", "resin", "polystyrene", "polypropylene", "plasticware", "plastics"];
-  if (LOGISTICS.some(l => t.includes(l)) && CHEM_REFS.some(c => t.includes(c))) {
-    return Object.assign({}, breakdown, {
-      relevanceType: "Upstream Signal", relevanceScore: "Medium",
-      reason: "logistics congestion affecting chemical / plasticware exports"
-    });
-  }
-  // 3d. Regulatory testing-demand + lab/consumable context
-  if (regDemandHit && (labCtxHit || productHit)) {
-    return Object.assign({}, breakdown, {
-      relevanceType: "Upstream Signal", relevanceScore: "Medium",
-      reason: 'regulatory testing-demand expansion ("' + regDemandHit + '") + lab/consumable context'
+      relevanceType: "Adjacent Signal", relevanceScore: "Medium",
+      reason: 'Tier 2 "' + tier2Hit + '" + supply "' + supplyHit + '"'
     });
   }
 
-  // ---- 4. Weak Signal — domain-related but no supply / context pairing ----
-  // These items deserve display because they touch our space, even if the
-  // headline alone doesn't include a supply-pressure verb. They appear under
-  // a "Weak Signal" badge so the user can still see and review them.
-  if (productHit) {
+  // ---- 4. Upstream Signal (Tier 3 + supply) ----
+  if (tier3Hit && supplyHit) {
     return Object.assign({}, breakdown, {
-      relevanceType: "Weak Signal", relevanceScore: "Low",
-      reason: 'product term "' + productHit + '" present (no supply verb yet — review for context)'
+      relevanceType: "Upstream Signal", relevanceScore: "Medium",
+      reason: 'Tier 3 "' + tier3Hit + '" + supply "' + supplyHit + '"'
     });
   }
-  if (upstreamHit) {
+  // Bonus rule (spec Part 3): allow a weaker signal if upstream + uncertainty
+  // wording appears even without a hard supply verb. Already covered by the
+  // generic tier3+supply rule because "uncertainty" / "uncertain" / "volatility"
+  // are in the supply list — but we leave a comment to make the policy explicit.
+
+  // ---- 5. Weak Signal (any tier alone, no supply pairing yet) ----
+  if (tier1Hit) {
     return Object.assign({}, breakdown, {
       relevanceType: "Weak Signal", relevanceScore: "Low",
-      reason: 'upstream term "' + upstreamHit + '" present (no supply / lab context yet)'
+      reason: 'Tier 1 term "' + tier1Hit + '" alone (no supply verb yet — review)'
     });
   }
-  if (regDemandHit) {
+  if (tier2Hit) {
     return Object.assign({}, breakdown, {
       relevanceType: "Weak Signal", relevanceScore: "Low",
-      reason: 'regulatory term "' + regDemandHit + '" present (no explicit lab context yet)'
+      reason: 'Tier 2 term "' + tier2Hit + '" alone (no supply verb yet — review)'
+    });
+  }
+  if (tier3Hit) {
+    return Object.assign({}, breakdown, {
+      relevanceType: "Weak Signal", relevanceScore: "Low",
+      reason: 'Tier 3 term "' + tier3Hit + '" alone (no supply context yet — review)'
     });
   }
 
-  // ---- 5. Filtered — record a precise diagnosis ----
-  const diag = [];
-  if (!productHit && !upstreamHit && !regDemandHit) diag.push("no product / upstream / regulatory term matched");
+  // ---- 6. Filtered ----
   return Object.assign({}, breakdown, {
     relevanceType: "Filtered", relevanceScore: "Filtered",
-    reason: diag.join("; ") || "no relevance pattern matched"
+    reason: "no Tier 1 / 2 / 3 term matched"
   });
 }
 
@@ -2073,13 +1974,11 @@ function escapeQuery(q) { return encodeURIComponent(q); }
  * results in the appropriate language.
  */
 function buildRssUrl(keyword, country) {
-  // Local-script detection for the 5 in-scope languages: Thai, Japanese, Korean, Chinese.
-  const localScript = /[\u0E00-\u0E7F\u3040-\u30FF\u4E00-\u9FFF\uAC00-\uD7AF]/.test(keyword);
+  // Spec Part 5: always use the country's hl / gl / ceid so we get
+  // local-language results from that country's edition of Google News.
+  // Falls back to en-US only if the country isn't in our locale map.
   const hint = RSS_CONFIG.localeHints[country] || { hl: "en-US", gl: "US", ceid: "US:en" };
-  const useLocale = localScript;
-  const params = useLocale
-    ? `hl=${hint.hl}&gl=${hint.gl}&ceid=${hint.ceid}`
-    : `hl=en-US&gl=US&ceid=US:en`;
+  const params = `hl=${hint.hl}&gl=${hint.gl}&ceid=${hint.ceid}`;
   return `${RSS_CONFIG.baseUrl}?q=${escapeQuery(keyword)}&${params}`;
 }
 
@@ -2398,6 +2297,7 @@ async function refreshFromRss({ force = false } = {}) {
         fetched: cached.fetched || 0,
         failed: cached.failed || 0,
         directCount: cached.directCount || 0,
+        adjacentCount: cached.adjacentCount || 0,
         upstreamCount: cached.upstreamCount || 0,
         weakCount: cached.weakCount || 0,
         filteredOut: cached.filteredOut || 0,
@@ -2431,16 +2331,49 @@ async function refreshFromRss({ force = false } = {}) {
   // 1. Strict relevance gate: split into kept vs. filtered, but keep both
   //    so the debug UI can display the filtered list and reasons.
   const beforeFilter = results.length;
-  const relevant   = results.filter(s => s.relevance_score !== "Filtered");
-  const filteredArr = results.filter(s => s.relevance_score === "Filtered");
-  const filteredOut = filteredArr.length;
+  let   relevant    = results.filter(s => s.relevance_score !== "Filtered");
+  let   filteredArr = results.filter(s => s.relevance_score === "Filtered");
+
+  // ----- Spec Part 3 fallback: never return 0 items in RSS mode -----
+  // If after strict classification we have ZERO relevant items but DID fetch
+  // some non-excluded items, promote up to N highest-quality candidates from
+  // the "Filtered" bucket to Weak Signals so the user always sees something.
+  // Excluded items (academic / sustainability / etc) are NOT promoted —
+  // only items that failed because no tier term matched.
+  if (relevant.length === 0 && DEBUG_FLAGS.fallbackTopWeak > 0) {
+    const promoteCandidates = filteredArr.filter(s => (s.exclusionTerms || []).length === 0);
+    // Best candidates are the ones that mention any tier term at all, even faintly.
+    // Score = total tier-term mentions; tie-break newer-first.
+    const score = (s) => (s.matchedTier1Terms || []).length * 3
+                       + (s.matchedTier2Terms || []).length * 2
+                       + (s.matchedTier3Terms || []).length;
+    const ranked = promoteCandidates
+      .map(s => ({ s, k: score(s) }))
+      .filter(x => x.k > 0)                  // require at least one tier-term hint
+      .sort((a, b) => b.k - a.k || new Date(b.s.date) - new Date(a.s.date))
+      .slice(0, DEBUG_FLAGS.fallbackTopWeak)
+      .map(x => x.s);
+    if (ranked.length > 0) {
+      ranked.forEach(s => {
+        s.relevance_type    = "Weak Signal";
+        s.relevance_score   = "Low";
+        s.relevance_reason  = "Promoted by fallback (top-" + DEBUG_FLAGS.fallbackTopWeak +
+                              " weak signal). Original reason: " + (s.relevance_reason || "—");
+      });
+      relevant    = ranked;
+      filteredArr = filteredArr.filter(s => !ranked.includes(s));
+    }
+  }
+
+  const filteredOut   = filteredArr.length;
   const directCount   = relevant.filter(s => s.relevance_type === "Direct Signal").length;
+  const adjacentCount = relevant.filter(s => s.relevance_type === "Adjacent Signal").length;
   const upstreamCount = relevant.filter(s => s.relevance_type === "Upstream Signal").length;
   const weakCount     = relevant.filter(s => s.relevance_type === "Weak Signal").length;
 
   // 2. Dedupe by normalised title + host
   // 3. Sort: High → Medium → Low (Weak); within tier, newest first
-  // 4. Cap at RELEVANCE_FILTERS.maxRendered (Part 4: keep top 20–30 items)
+  // 4. Cap at RELEVANCE_FILTERS.maxRendered (50 items)
   const RANK = { High: 0, Medium: 1, Low: 2, Filtered: 3 };
   const deduped = dedupeSignals(relevant)
     .sort((a, b) => {
@@ -2465,6 +2398,7 @@ async function refreshFromRss({ force = false } = {}) {
     raw: beforeFilter,
     filteredOut: filteredOut,
     directCount: directCount,
+    adjacentCount: adjacentCount,
     upstreamCount: upstreamCount,
     weakCount: weakCount
   };
@@ -2507,141 +2441,106 @@ function formatRelativeTime(ts) {
   return new Date(ts).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-const SIGNALS = [
-  {
-    id: 1,
-    headline: "Asian naphtha faces challenges amid petrochemical restructuring, Russian supply uncertainty",
-    source: "S&P Global Commodity Insights",
-    url: "https://www.spglobal.com/energy/en/news-research/latest-news/refined-products/122225-commodities-2026-asian-naphtha-faces-challenges-amid-petrochemical-restructuring-russian-supply-uncertainty",
-    url_kind: "article",
-    date: "2026-04-22",
-    country: "Korea",
-    risk: "High",
-    signal: "polystyrene supply",
-    why: "S&P Global reports Korean petrochemical restructuring will reduce ethylene capacity by 2.7–3.7 million tonnes; combined with cracker rate cuts and Russian supply uncertainty, downstream styrene monomer and polystyrene tightness is expected to persist into 2026, affecting petri-dish-grade resin availability.",
-    opportunity: "Customers running heavy petri dish workflows in Korea and Japan may face lot delays. Position Petrifilm plates as a no-pour, no-prep alternative to de-risk QC schedules during the squeeze."
+/* ===========================================================
+   SAMPLE DATA  (Part 9 — RSS-bootstrapped, not synthetic)
+   --------------------------------------------------------
+   The previous build shipped 9 hand-crafted "sample signals". Per the
+   redesign spec, all synthetic data is removed. SAMPLE_DATA is now
+   bootstrapped from real RSS results: on the first successful RSS refresh
+   (or via the "Rebuild Sample from RSS" button), the top 5–10 highest-
+   scoring relevant items are persisted to localStorage and become the
+   sample dataset.
+
+   Display semantics:
+     - Before any RSS fetch: SAMPLE_DATA is empty; sample mode shows an
+       "Empty sample" prompt asking the user to click Refresh / Rebuild.
+     - After bootstrap: SAMPLE_DATA holds 5–10 real-RSS-derived cards.
+       A label "Sample Data is based on real RSS results" is shown.
+   =========================================================== */
+const SAMPLE_STORAGE_KEY = "lrm_sample_v1";
+const SAMPLE_BOOTSTRAP_TARGET = 8;   // pick top 5–10 results, default 8
+
+let SAMPLE_DATA = [];                // mutable; not const because we rebuild
+let SAMPLE_BOOTSTRAPPED_AT = null;   // ISO timestamp when last bootstrapped
+
+function loadSampleFromStorage() {
+  try {
+    if (typeof localStorage === "undefined") return;
+    const raw = localStorage.getItem(SAMPLE_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw);
+    if (parsed && Array.isArray(parsed.signals)) {
+      SAMPLE_DATA = parsed.signals;
+      SAMPLE_BOOTSTRAPPED_AT = parsed.bootstrappedAt || null;
+    }
+  } catch (_) { /* ignore corrupt cache */ }
+}
+
+function saveSampleToStorage() {
+  try {
+    if (typeof localStorage === "undefined") return;
+    const payload = JSON.stringify({
+      signals: SAMPLE_DATA,
+      bootstrappedAt: SAMPLE_BOOTSTRAPPED_AT
+    });
+    localStorage.setItem(SAMPLE_STORAGE_KEY, payload);
+  } catch (_) { /* quota / disabled — non-fatal */ }
+}
+
+/**
+ * Bootstrap SAMPLE_DATA from a fresh batch of RSS signals. Called from
+ * runRssRefresh after a successful refresh. Only fires the first time
+ * (when SAMPLE_DATA is empty); use rebuildSampleFromRss for explicit
+ * re-bootstrap via the UI button.
+ */
+function maybeBootstrapSampleData(rssSignals) {
+  if (SAMPLE_DATA.length > 0) return;        // already bootstrapped
+  rebuildSampleFromRss(rssSignals);
+}
+
+/**
+ * Replace SAMPLE_DATA with the top N relevant items from the supplied
+ * RSS-signal array. Items are ranked by relevance score then by date.
+ * Persists to localStorage. Idempotent.
+ */
+function rebuildSampleFromRss(rssSignals) {
+  const RANK = { High: 0, Medium: 1, Low: 2, Filtered: 3 };
+  const ranked = (rssSignals || [])
+    .filter(s => s.relevance_score !== "Filtered")
+    .slice()
+    .sort((a, b) => {
+      const r = (RANK[a.relevance_score] !== undefined ? RANK[a.relevance_score] : 9) -
+                (RANK[b.relevance_score] !== undefined ? RANK[b.relevance_score] : 9);
+      if (r !== 0) return r;
+      return new Date(b.date) - new Date(a.date);
+    })
+    .slice(0, SAMPLE_BOOTSTRAP_TARGET);
+
+  SAMPLE_DATA = ranked.map(s => Object.assign({}, s, {
+    // Mark explicitly so we can show the "based on real RSS" label
+    is_bootstrapped: true
+  }));
+  SAMPLE_BOOTSTRAPPED_AT = new Date().toISOString();
+  saveSampleToStorage();
+}
+
+// Backward compatibility: many older render helpers reference SIGNALS.
+// We expose SIGNALS as a getter onto SAMPLE_DATA so existing code keeps working.
+const SIGNALS = new Proxy([], {
+  get(_, prop) {
+    if (prop === "length") return SAMPLE_DATA.length;
+    if (prop === Symbol.iterator) return SAMPLE_DATA[Symbol.iterator].bind(SAMPLE_DATA);
+    if (typeof prop === "string" && /^\d+$/.test(prop)) return SAMPLE_DATA[Number(prop)];
+    const v = SAMPLE_DATA[prop];
+    return typeof v === "function" ? v.bind(SAMPLE_DATA) : v;
   },
-  {
-    id: 2,
-    headline: "Japanese lab distributors flag extended lead times on imported sterile plasticware",
-    translated_headline: "Japanese lab distributors flag extended lead times on imported sterile plasticware",
-    original_headline: "国内ラボ向け滅菌プラスチック製品 — 輸入リードタイムが大幅延長",
-    original_language: "Japanese",
-    source: "Nikkei Asia",
-    url: "https://news.google.com/search?q=%22Nikkei+Asia%22+Japanese+lab+distributors+flag+extended+lead+times+on+imported+sterile+Japan&hl=en-US&gl=US&ceid=US:en",
-    url_kind: "google_news_article",
-    source_url: "https://www.nikkei.com/",
-    date: "2026-04-18",
-    country: "Japan",
-    risk: "High",
-    signal: "sterile plasticware shortage",
-    why: "Several Japanese distributors have publicly cited 8–12 week lead times on imported petri dishes and sterile pipette tips, attributed to upstream resin shortages and shipping reliability issues out of Northeast Asia.",
-    opportunity: "Direct fit for Petrifilm conversion in food &amp; beverage QC and pharma environmental monitoring labs that cannot tolerate longer agar-plate replenishment cycles."
-  },
-  {
-    id: 3,
-    headline: "Thailand FDA expands microbiological testing scope for ready-to-eat foods",
-    translated_headline: "Thailand FDA expands microbiological testing scope for ready-to-eat foods",
-    original_headline: "อย. ขยายขอบเขตการตรวจจุลชีววิทยา สำหรับอาหารพร้อมรับประทาน",
-    original_language: "Thai",
-    source: "Bangkok Post",
-    url: "https://news.google.com/search?q=%22Bangkok+Post%22+Thailand+FDA+expands+microbiological+testing+scope+for+ready-to-eat+foods+Thailand&hl=en-US&gl=US&ceid=US:en",
-    url_kind: "google_news_article",
-    source_url: "https://www.thaipbs.or.th/",
-    date: "2026-04-10",
-    country: "Thailand",
-    risk: "Medium",
-    signal: "microbiology supplies shortage",
-    why: "Public regulatory updates from Thailand's FDA broaden mandatory pathogen testing for several RTE food categories. Industry associations have publicly noted concern over QC lab capacity and consumable availability.",
-    opportunity: "RTE manufacturers needing rapid scale-up of in-house micro testing are strong Petrifilm prospects — turnkey, standardized format reduces dependency on agar plate procurement."
-  },
-  {
-    id: 4,
-    headline: "China port congestion at Ningbo lengthens chemical export schedules",
-    translated_headline: "China port congestion at Ningbo lengthens chemical export schedules",
-    original_headline: "宁波港拥堵导致化工产品出口排期延长",
-    original_language: "Chinese",
-    source: "South China Morning Post",
-    url: "https://news.google.com/search?q=%22South+China+Morning+Post%22+China+port+congestion+at+Ningbo+lengthens+chemical+export+schedules+China&hl=en-US&gl=US&ceid=US:en",
-    url_kind: "google_news_article",
-    source_url: "https://www.caixin.com/",
-    date: "2026-04-08",
-    country: "China",
-    risk: "Medium",
-    signal: "petrochemical disruption",
-    why: "Reported congestion at Ningbo-Zhoushan is delaying chemical and resin exports to Southeast Asia by an average of 9 days, per public shipping intelligence. Polystyrene and polypropylene shipments are among those affected.",
-    opportunity: "Watch for downstream effects on plasticware availability across the region over the next 4–6 weeks. Pre-position Petrifilm sampling with mid-size QC labs in Thailand, Japan and Korea."
-  },
-  {
-    id: 5,
-    headline: "EU seafood standards: tighter microbiological criteria push exporters to expand testing",
-    source: "Agriculture Institute",
-    url: "https://agriculture.institute/quality-assurance-dfpt/eu-standards-safe-seafood-exports/",
-    url_kind: "article",
-    date: "2026-03-25",
-    country: "Australia",
-    risk: "Medium",
-    signal: "microbiology supplies shortage",
-    why: "EU Regulation 2025/1891 (effective Oct 2025) introduced new inorganic-arsenic limits and expanded contaminant testing on aquaculture and seafood imports. Per-batch microbiological and residue test counts have risen, increasing consumable consumption rates across A&NZ producers exporting to the EU.",
-    opportunity: "Infant formula and seafood producers facing audit-driven test volume growth are high-precision Petrifilm targets. Highlight standardized, AOAC-validated counts as a compliance plus."
-  },
-  {
-    id: 6,
-    headline: "Korean seaweed processors face QC consumable shortages amid export surge",
-    translated_headline: "Korean seaweed processors face QC consumable shortages amid export surge",
-    original_headline: "수출 급증 속 한국 해조류 가공업체, 품질관리 소모품 부족 직면",
-    original_language: "Korean",
-    source: "The Korea Herald",
-    url: "https://news.google.com/search?q=%22The+Korea+Herald%22+Korean+seaweed+processors+face+QC+consumable+shortages+amid+export+surge+Korea&hl=en-US&gl=US&ceid=US:en",
-    url_kind: "google_news_article",
-    source_url: "https://www.hankyung.com/",
-    date: "2026-03-22",
-    country: "Korea",
-    risk: "Medium",
-    signal: "petri dish supply disruption",
-    why: "Public industry coverage notes Korean seaweed exporters scaling QC test volume to keep pace with US and EU demand, while domestic distributors flag delayed petri dish replenishment.",
-    opportunity: "Tactical opportunity: position Petrifilm as a stop-gap and longer-term standard for export-batch microbiology, especially for Salmonella and total plate count."
-  },
-  {
-    id: 7,
-    headline: "China expands lab consumables domestic manufacturing push",
-    source: "Caixin Global",
-    url: "https://news.google.com/search?q=%22Caixin+Global%22+China+expands+lab+consumables+domestic+manufacturing+push+China&hl=en-US&gl=US&ceid=US:en",
-    url_kind: "google_news_article",
-    date: "2026-03-18",
-    country: "China",
-    risk: "Low",
-    signal: "plastic consumables shortage",
-    why: "Caixin reports new domestic Chinese capacity for sterile plasticware coming online in 2026 and 2027, easing some of the import-reliance concerns flagged in 2024–2025.",
-    opportunity: "Mixed signal: short-term opening for Petrifilm conversions remains, but emphasize differentiated-product positioning (not just supply substitution) for durability against future commodity competition."
-  },
-  {
-    id: 8,
-    headline: "Thailand poultry sector responds to Salmonella surveillance update",
-    source: "Reuters",
-    url: "https://news.google.com/search?q=%22Reuters%22+Thailand+poultry+sector+responds+to+Salmonella+surveillance+update+Thailand&hl=en-US&gl=US&ceid=US:en",
-    url_kind: "google_news_article",
-    date: "2026-03-12",
-    country: "Thailand",
-    risk: "High",
-    signal: "microbiology supplies shortage",
-    why: "Reuters coverage of public Thai DLD updates indicates expanded Salmonella sampling requirements at Thai poultry processing plants, raising routine testing volumes substantially.",
-    opportunity: "Direct match for Petrifilm Salmonella Express. Pitch as a labor and turnaround time reduction — critical when daily test volumes step up."
-  },
-  {
-    id: 9,
-    headline: "Australian universities flag tightening grant budgets for lab supplies",
-    source: "The Sydney Morning Herald",
-    url: "https://news.google.com/search?q=%22The+Sydney+Morning+Herald%22+Australian+universities+flag+tightening+grant+budgets+for+lab+supplies+Australia&hl=en-US&gl=US&ceid=US:en",
-    url_kind: "google_news_article",
-    date: "2026-03-04",
-    country: "Australia",
-    risk: "Low",
-    signal: "laboratory consumables shortage",
-    why: "Public reporting on Australian academic research funding pressures notes labs are reassessing consumable spend, including microbiology workflows.",
-    opportunity: "Lower priority for sales, but useful context. Academic research labs may be open to lower-prep alternatives if total cost-per-test framing is presented clearly."
+  has(_, prop) { return prop in SAMPLE_DATA; },
+  ownKeys() { return Reflect.ownKeys(SAMPLE_DATA); },
+  getOwnPropertyDescriptor(_, prop) {
+    return Reflect.getOwnPropertyDescriptor(SAMPLE_DATA, prop);
   }
-];
+});
+
 
 /* ===========================================================
    RENDERING & FILTERING
@@ -2667,6 +2566,7 @@ const state = {
   rssFetched: 0,
   rssFailed: 0,
   rssDirectCount: 0,
+  rssAdjacentCount: 0,
   rssUpstreamCount: 0,
   rssWeakCount: 0,
   rssFilteredOut: 0,
@@ -2675,10 +2575,13 @@ const state = {
 
 /* The currently active dataset for filtering / rendering. */
 function getActiveSignals() {
-  return state.mode === "rss" ? state.rssSignals : SIGNALS;
+  return state.mode === "rss" ? state.rssSignals : SAMPLE_DATA;
 }
 
 function init() {
+  // Load any persisted RSS-derived sample data first so sample mode has data
+  loadSampleFromStorage();
+
   // populate country dropdown
   const cf = $("#countryFilter");
   COUNTRIES.forEach(c => {
@@ -2715,10 +2618,6 @@ function init() {
   renderHeroStats();
   renderRefreshStatus();
   render();
-
-  // On load: if a recent RSS cache is available, surface it in status
-  // but stay in Sample mode by default until the user opts in.
-  // (Switching modes triggers a fetch only if the cache is stale.)
 }
 
 /* ===========================================================
@@ -2728,6 +2627,7 @@ function initDataModeControls() {
   const sampleBtn  = $("#modeSample");
   const rssBtn     = $("#modeRss");
   const refreshBtn = $("#manualRefresh");
+  const rebuildBtn = $("#rebuildSample");
   const filterTog  = $("#showFilteredToggle");
 
   if (sampleBtn) sampleBtn.addEventListener("click", () => switchMode("sample"));
@@ -2738,6 +2638,31 @@ function initDataModeControls() {
       await switchMode("rss", { force: true });
     } else {
       await runRssRefresh({ force: true });
+    }
+  });
+  // Rebuild Sample from RSS (Spec Part 9 — explicit rebuild button)
+  if (rebuildBtn) rebuildBtn.addEventListener("click", async () => {
+    rebuildBtn.disabled = true;
+    try {
+      // If we have fresh RSS results in state, rebuild from those.
+      // Otherwise fetch first.
+      if (!state.rssSignals || state.rssSignals.length === 0) {
+        await runRssRefresh({ force: true });
+      }
+      if (state.rssSignals && state.rssSignals.length > 0) {
+        rebuildSampleFromRss(state.rssSignals);
+        // Stay in (or switch to) sample mode so the user immediately sees the rebuilt set
+        if (state.mode !== "sample") {
+          state.mode = "sample";
+          setActiveModeButton("sample");
+        }
+        renderHeroStats(); renderRefreshStatus(); render();
+        showRssWarning("Sample rebuilt from " + SAMPLE_DATA.length + " RSS items.", { tone: "info", autoHideMs: 4000 });
+      } else {
+        showRssWarning("Could not rebuild sample — RSS refresh returned no signals.");
+      }
+    } finally {
+      rebuildBtn.disabled = false;
     }
   });
   if (filterTog) {
@@ -2755,6 +2680,7 @@ function initDataModeControls() {
     state.rssFetched      = cached.fetched || 0;
     state.rssFailed       = cached.failed || 0;
     state.rssDirectCount  = cached.directCount || 0;
+    state.rssAdjacentCount = cached.adjacentCount || 0;
     state.rssUpstreamCount = cached.upstreamCount || 0;
     state.rssWeakCount    = cached.weakCount || 0;
     state.rssFilteredOut  = cached.filteredOut || 0;
@@ -2780,6 +2706,7 @@ async function switchMode(mode, opts) {
       state.rssFetched       = cached.fetched || 0;
       state.rssFailed        = cached.failed  || 0;
       state.rssDirectCount   = cached.directCount || 0;
+      state.rssAdjacentCount = cached.adjacentCount || 0;
       state.rssUpstreamCount = cached.upstreamCount || 0;
       state.rssWeakCount     = cached.weakCount || 0;
       state.rssFilteredOut   = cached.filteredOut || 0;
@@ -2821,8 +2748,14 @@ async function runRssRefresh(opts) {
     state.rssRaw           = result.raw || 0;
     state.rssFilteredOut   = result.filteredOut || 0;
     state.rssDirectCount   = result.directCount || 0;
+    state.rssAdjacentCount = result.adjacentCount || 0;
     state.rssUpstreamCount = result.upstreamCount || 0;
     state.rssWeakCount     = result.weakCount || 0;
+    // Spec Part 9: bootstrap Sample data on first successful RSS refresh.
+    // If the user has not yet built a sample, do it now from this batch.
+    if (state.rssSignals.length > 0) {
+      maybeBootstrapSampleData(state.rssSignals);
+    }
     if (state.rssSignals.length === 0 && (state.rssFilteredSignals.length || 0) === 0) {
       // Truly empty refresh — no signals OR no filtered items either, fall back
       showRssWarning("RSS refresh returned no items at all. Showing sample data.");
@@ -2858,17 +2791,53 @@ function setRefreshLoading(isLoading) {
   btn.disabled = !!isLoading;
 }
 
-function showRssWarning(msg) {
+function showRssWarning(msg, opts) {
+  opts = opts || {};
   const el = $("#rssWarning");
   if (!el) return;
   el.textContent = msg;
   el.classList.remove("is-hidden");
+  el.classList.toggle("is-info", opts.tone === "info");
+  if (opts.autoHideMs && opts.autoHideMs > 0) {
+    if (el._autoHideTimer) clearTimeout(el._autoHideTimer);
+    el._autoHideTimer = setTimeout(() => hideRssWarning(), opts.autoHideMs);
+  }
 }
 function hideRssWarning() {
   const el = $("#rssWarning");
   if (!el) return;
   el.classList.add("is-hidden");
+  el.classList.remove("is-info");
   el.textContent = "";
+  if (el._autoHideTimer) { clearTimeout(el._autoHideTimer); el._autoHideTimer = null; }
+}
+
+/**
+ * Spec Part 9: when the user is in Sample mode AND the sample dataset
+ * was bootstrapped from real RSS results, show a small label confirming so.
+ * Hidden in RSS mode and when sample is empty (the empty prompt covers that).
+ */
+function updateSampleBootstrapLabel() {
+  const el = $("#sampleDataLabel");
+  const meta = $("#sampleDataMeta");
+  if (!el) return;
+  const inSampleWithData = state.mode === "sample" && SAMPLE_DATA.length > 0;
+  if (!inSampleWithData) {
+    el.classList.add("is-hidden");
+    return;
+  }
+  el.classList.remove("is-hidden");
+  if (meta) {
+    if (SAMPLE_BOOTSTRAPPED_AT) {
+      const ts = typeof SAMPLE_BOOTSTRAPPED_AT === "number"
+        ? SAMPLE_BOOTSTRAPPED_AT
+        : Date.parse(SAMPLE_BOOTSTRAPPED_AT);
+      meta.textContent = "· built " + formatRelativeTime(ts) +
+                         " · " + SAMPLE_DATA.length + " items";
+    } else {
+      meta.textContent = "· " + SAMPLE_DATA.length + " items";
+    }
+  }
 }
 
 function renderRefreshStatus() {
@@ -2889,32 +2858,31 @@ function renderRefreshStatus() {
   if (itemsEl) {
     if (state.mode === "rss") {
       const parts = [];
-      const direct   = state.rssDirectCount   || 0;
-      const upstream = state.rssUpstreamCount || 0;
-      const weak     = state.rssWeakCount     || 0;
-      parts.push(direct + " direct");
-      parts.push(upstream + " upstream");
-      parts.push(weak + " weak");
+      parts.push((state.rssDirectCount   || 0) + " direct");
+      parts.push((state.rssAdjacentCount || 0) + " adjacent");
+      parts.push((state.rssUpstreamCount || 0) + " upstream");
+      parts.push((state.rssWeakCount     || 0) + " weak");
       if (state.rssFilteredOut) parts.push(state.rssFilteredOut + " filtered");
       if (state.rssFailed)      parts.push(state.rssFailed + " feed err");
       itemsEl.textContent = parts.join(" · ");
     } else {
-      // Sample mode: also show the per-category breakdown for parity
-      const sampleCounts = SIGNALS.reduce((acc, s) => {
+      // Sample mode (RSS-bootstrapped data): per-category breakdown
+      const ds = getActiveSignals();
+      const counts = ds.reduce((acc, s) => {
         const c = (typeof getRelevance === "function") ? getRelevance(s) : { type: "" };
-        if (c.type === "Direct Signal") acc.d++;
+        if (c.type === "Direct Signal")        acc.d++;
+        else if (c.type === "Adjacent Signal") acc.a++;
         else if (c.type === "Upstream Signal") acc.u++;
-        else if (c.type === "Weak Signal") acc.w++;
-        else if (c.type === "Filtered") acc.f++;
+        else if (c.type === "Weak Signal")     acc.w++;
+        else if (c.type === "Filtered")        acc.f++;
         return acc;
-      }, { d: 0, u: 0, w: 0, f: 0 });
-      const parts = [
-        SIGNALS.length + " sample signals",
-        sampleCounts.d + " direct",
-        sampleCounts.u + " upstream",
-        sampleCounts.w + " weak"
-      ];
-      if (sampleCounts.f) parts.push(sampleCounts.f + " filtered");
+      }, { d: 0, a: 0, u: 0, w: 0, f: 0 });
+      const parts = [ ds.length + " sample signals" ];
+      if (counts.d) parts.push(counts.d + " direct");
+      if (counts.a) parts.push(counts.a + " adjacent");
+      if (counts.u) parts.push(counts.u + " upstream");
+      if (counts.w) parts.push(counts.w + " weak");
+      if (counts.f) parts.push(counts.f + " filtered");
       itemsEl.textContent = parts.join(" · ");
     }
   }
@@ -3081,11 +3049,34 @@ function render() {
   const filtered = applyFilters();
   const grid = $("#cardsGrid");
   const af = $("#activeFilters");
+  const active = getActiveSignals();
 
-  af.innerHTML = chipsHtml() + `<div class="results-count">Showing ${filtered.length} of ${SIGNALS.length}</div>`;
+  // Update the "Sample Data is based on real RSS results" label
+  updateSampleBootstrapLabel();
+
+  af.innerHTML = chipsHtml() + `<div class="results-count">Showing ${filtered.length} of ${active.length}</div>`;
+
+  // Empty-sample bootstrap prompt — shown only in Sample mode when no sample
+  // data has been fetched / built yet. Tells the user how to populate.
+  if (state.mode === "sample" && active.length === 0) {
+    grid.innerHTML = `
+      <div class="empty-sample-prompt">
+        <h4>Sample data not yet built</h4>
+        <p>
+          This monitor uses real RSS results — there's no synthetic sample data.
+          Click <strong>Refresh</strong> to fetch live signals, or
+          <strong>Rebuild Sample from RSS</strong> to populate the sample dataset
+          from a fresh batch.
+        </p>
+      </div>
+    `;
+    renderFilteredRssSection();
+    return;
+  }
 
   if (filtered.length === 0) {
     grid.innerHTML = `<div class="empty"><h4>No matching signals</h4><p>Try clearing filters or broadening the search.</p></div>`;
+    renderFilteredRssSection();
     return;
   }
 
@@ -3251,6 +3242,7 @@ function renderRelevanceBadge(s) {
   const cls = "relevance-" + String(r.score || "filtered").toLowerCase();
   const tip = (r.type ? r.type + " · " : "") + "Score: " + r.score + (r.reason ? " — " + r.reason : "");
   const typeLabel = r.type === "Direct Signal"   ? "Direct"
+                  : r.type === "Adjacent Signal" ? "Adjacent"
                   : r.type === "Upstream Signal" ? "Upstream"
                   : r.type === "Weak Signal"     ? "Weak"
                   : "Filtered";
