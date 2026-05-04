@@ -663,6 +663,12 @@
     background: rgba(255,182,72,0.06);
   }
   .relevance-medium::before { background: var(--med); }
+  .relevance-low {
+    color: var(--ink-dim);
+    border: 1px solid var(--line-2);
+    background: rgba(255,255,255,0.02);
+  }
+  .relevance-low::before { background: var(--ink-mute); }
   .relevance-filtered {
     color: var(--ink-mute);
     border: 1px dashed var(--line-2);
@@ -1878,6 +1884,38 @@ const DEBUG_FLAGS = {
  *     reason:                string
  *   }
  */
+/**
+ * Shared relevance classifier — applied to BOTH Sample Data (via getRelevance)
+ * and RSS Data (via rssItemToSignal). The classification ladder:
+ *
+ *   Direct Signal   — product term + supply / disruption term
+ *                       High   if "petri dish" + a strong disruption verb
+ *                       Medium otherwise
+ *   Upstream Signal — feedstock / upstream term + supply term       (Medium)
+ *                     · OR feedstock + lab/consumable context        (Medium)
+ *                     · OR port/logistics congestion + chemical      (Medium)
+ *                     · OR regulatory testing-demand + lab context   (Medium)
+ *   Weak Signal     — domain-related but lower-confidence:           (Low)
+ *                     · product term alone, no supply verb yet
+ *                     · upstream term alone, no supply / lab context yet
+ *                     · regulatory / surveillance term alone in food-safety domain
+ *   Filtered        — hits exclusion list, or no relevant terms
+ *
+ * Returns a complete breakdown object so the debug surface can show exactly
+ * which categories matched (or didn't):
+ *
+ *   {
+ *     relevanceType:           "Direct Signal" | "Upstream Signal" | "Weak Signal" | "Filtered",
+ *     relevanceScore:          "High" | "Medium" | "Low" | "Filtered",
+ *     matchedProductTerms:     string[],
+ *     matchedSupplyTerms:      string[],
+ *     matchedUpstreamTerms:    string[],
+ *     matchedRegulatoryTerms:  string[],
+ *     matchedLabContextTerms:  string[],
+ *     exclusionTerms:          string[],
+ *     reason:                  string
+ *   }
+ */
 function classifySignal(articleText) {
   const t = (articleText || "").toLowerCase();
   const F = RELEVANCE_FILTERS;
@@ -1919,7 +1957,6 @@ function classifySignal(articleText) {
         reason: 'Excluded because: "' + exclusionTerms[0].trim() + '"'
       });
     }
-    // Soft mode: still mark as Filtered, but try to explain in detail
     return Object.assign({}, breakdown, {
       relevanceType: "Filtered", relevanceScore: "Filtered",
       reason: 'Excluded because: "' + exclusionTerms[0].trim() + '"' +
@@ -1933,7 +1970,7 @@ function classifySignal(articleText) {
   const regDemandHit  = matchedRegulatoryTerms[0] || null;
   const labCtxHit     = matchedLabContextTerms[0] || null;
 
-  // 2. Direct Signal — product + supply
+  // ---- 2. Direct Signal — product + supply ----
   if (productHit && supplyHit) {
     const PETRI_TERMS = ["petri dish", "petri dishes", "ペトリ皿", "シャーレ",
                          "培养皿", "皮氏培养皿", "페트리 접시", "배양 접시", "จานเพาะเชื้อ"];
@@ -1953,7 +1990,7 @@ function classifySignal(articleText) {
     });
   }
 
-  // 3a. Upstream Signal — feedstock/upstream + supply
+  // ---- 3a. Upstream Signal — feedstock/upstream + supply ----
   if (upstreamHit && supplyHit) {
     return Object.assign({}, breakdown, {
       relevanceType: "Upstream Signal", relevanceScore: "Medium",
@@ -1984,15 +2021,32 @@ function classifySignal(articleText) {
     });
   }
 
-  // 4. Filtered — but record a precise diagnosis of why
-  // Identify which condition was missing so the debug UI can suggest next steps
-  const diag = [];
-  if (!productHit && !upstreamHit) diag.push("no product or upstream term matched");
-  else {
-    if (productHit && !supplyHit)  diag.push('product "' + productHit + '" matched but no supply term');
-    if (upstreamHit && !supplyHit && !labCtxHit && !productHit)
-      diag.push('upstream "' + upstreamHit + '" matched but no supply / lab-context term');
+  // ---- 4. Weak Signal — domain-related but no supply / context pairing ----
+  // These items deserve display because they touch our space, even if the
+  // headline alone doesn't include a supply-pressure verb. They appear under
+  // a "Weak Signal" badge so the user can still see and review them.
+  if (productHit) {
+    return Object.assign({}, breakdown, {
+      relevanceType: "Weak Signal", relevanceScore: "Low",
+      reason: 'product term "' + productHit + '" present (no supply verb yet — review for context)'
+    });
   }
+  if (upstreamHit) {
+    return Object.assign({}, breakdown, {
+      relevanceType: "Weak Signal", relevanceScore: "Low",
+      reason: 'upstream term "' + upstreamHit + '" present (no supply / lab context yet)'
+    });
+  }
+  if (regDemandHit) {
+    return Object.assign({}, breakdown, {
+      relevanceType: "Weak Signal", relevanceScore: "Low",
+      reason: 'regulatory term "' + regDemandHit + '" present (no explicit lab context yet)'
+    });
+  }
+
+  // ---- 5. Filtered — record a precise diagnosis ----
+  const diag = [];
+  if (!productHit && !upstreamHit && !regDemandHit) diag.push("no product / upstream / regulatory term matched");
   return Object.assign({}, breakdown, {
     relevanceType: "Filtered", relevanceScore: "Filtered",
     reason: diag.join("; ") || "no relevance pattern matched"
@@ -2345,6 +2399,7 @@ async function refreshFromRss({ force = false } = {}) {
         failed: cached.failed || 0,
         directCount: cached.directCount || 0,
         upstreamCount: cached.upstreamCount || 0,
+        weakCount: cached.weakCount || 0,
         filteredOut: cached.filteredOut || 0,
         raw: cached.raw || 0
       };
@@ -2381,14 +2436,16 @@ async function refreshFromRss({ force = false } = {}) {
   const filteredOut = filteredArr.length;
   const directCount   = relevant.filter(s => s.relevance_type === "Direct Signal").length;
   const upstreamCount = relevant.filter(s => s.relevance_type === "Upstream Signal").length;
+  const weakCount     = relevant.filter(s => s.relevance_type === "Weak Signal").length;
 
   // 2. Dedupe by normalised title + host
-  // 3. Sort: High before Medium, then newest first
+  // 3. Sort: High → Medium → Low (Weak); within tier, newest first
   // 4. Cap at RELEVANCE_FILTERS.maxRendered (Part 4: keep top 20–30 items)
-  const RANK = { High: 0, Medium: 1, Filtered: 2 };
+  const RANK = { High: 0, Medium: 1, Low: 2, Filtered: 3 };
   const deduped = dedupeSignals(relevant)
     .sort((a, b) => {
-      const r = (RANK[a.relevance_score] || 9) - (RANK[b.relevance_score] || 9);
+      const r = (RANK[a.relevance_score] !== undefined ? RANK[a.relevance_score] : 9) -
+                (RANK[b.relevance_score] !== undefined ? RANK[b.relevance_score] : 9);
       if (r !== 0) return r;
       return new Date(b.date) - new Date(a.date);
     })
@@ -2408,7 +2465,8 @@ async function refreshFromRss({ force = false } = {}) {
     raw: beforeFilter,
     filteredOut: filteredOut,
     directCount: directCount,
-    upstreamCount: upstreamCount
+    upstreamCount: upstreamCount,
+    weakCount: weakCount
   };
   writeRssCache(payload);
   return Object.assign({}, payload, { fromCache: false });
@@ -2610,6 +2668,7 @@ const state = {
   rssFailed: 0,
   rssDirectCount: 0,
   rssUpstreamCount: 0,
+  rssWeakCount: 0,
   rssFilteredOut: 0,
   rssLoading: false
 };
@@ -2697,6 +2756,7 @@ function initDataModeControls() {
     state.rssFailed       = cached.failed || 0;
     state.rssDirectCount  = cached.directCount || 0;
     state.rssUpstreamCount = cached.upstreamCount || 0;
+    state.rssWeakCount    = cached.weakCount || 0;
     state.rssFilteredOut  = cached.filteredOut || 0;
     state.rssFilteredSignals = cached.filteredSignals || [];
     // Don't pre-load into state.rssSignals — only when user picks RSS mode
@@ -2721,6 +2781,7 @@ async function switchMode(mode, opts) {
       state.rssFailed        = cached.failed  || 0;
       state.rssDirectCount   = cached.directCount || 0;
       state.rssUpstreamCount = cached.upstreamCount || 0;
+      state.rssWeakCount     = cached.weakCount || 0;
       state.rssFilteredOut   = cached.filteredOut || 0;
       renderHeroStats(); renderRefreshStatus(); render();
       return;
@@ -2761,6 +2822,7 @@ async function runRssRefresh(opts) {
     state.rssFilteredOut   = result.filteredOut || 0;
     state.rssDirectCount   = result.directCount || 0;
     state.rssUpstreamCount = result.upstreamCount || 0;
+    state.rssWeakCount     = result.weakCount || 0;
     if (state.rssSignals.length === 0 && (state.rssFilteredSignals.length || 0) === 0) {
       // Truly empty refresh — no signals OR no filtered items either, fall back
       showRssWarning("RSS refresh returned no items at all. Showing sample data.");
@@ -2829,13 +2891,31 @@ function renderRefreshStatus() {
       const parts = [];
       const direct   = state.rssDirectCount   || 0;
       const upstream = state.rssUpstreamCount || 0;
+      const weak     = state.rssWeakCount     || 0;
       parts.push(direct + " direct");
       parts.push(upstream + " upstream");
+      parts.push(weak + " weak");
       if (state.rssFilteredOut) parts.push(state.rssFilteredOut + " filtered");
       if (state.rssFailed)      parts.push(state.rssFailed + " feed err");
       itemsEl.textContent = parts.join(" · ");
     } else {
-      itemsEl.textContent = SIGNALS.length + " sample signals";
+      // Sample mode: also show the per-category breakdown for parity
+      const sampleCounts = SIGNALS.reduce((acc, s) => {
+        const c = (typeof getRelevance === "function") ? getRelevance(s) : { type: "" };
+        if (c.type === "Direct Signal") acc.d++;
+        else if (c.type === "Upstream Signal") acc.u++;
+        else if (c.type === "Weak Signal") acc.w++;
+        else if (c.type === "Filtered") acc.f++;
+        return acc;
+      }, { d: 0, u: 0, w: 0, f: 0 });
+      const parts = [
+        SIGNALS.length + " sample signals",
+        sampleCounts.d + " direct",
+        sampleCounts.u + " upstream",
+        sampleCounts.w + " weak"
+      ];
+      if (sampleCounts.f) parts.push(sampleCounts.f + " filtered");
+      itemsEl.textContent = parts.join(" · ");
     }
   }
 }
@@ -2955,8 +3035,8 @@ function renderHeroStats() {
 }
 
 function applyFilters() {
-  // Sort: relevance score first (High > Medium > Filtered), then newest date.
-  const RANK = { High: 0, Medium: 1, Filtered: 2 };
+  // Sort: relevance score first (High > Medium > Low > Filtered), then newest date.
+  const RANK = { High: 0, Medium: 1, Low: 2, Filtered: 3 };
   const rankFor = s => {
     const sc = s.relevance_score || (getRelevance ? getRelevance(s).score : "Filtered");
     return RANK[sc] !== undefined ? RANK[sc] : 9;
@@ -3170,9 +3250,9 @@ function renderRelevanceBadge(s) {
   const r = getRelevance(s);
   const cls = "relevance-" + String(r.score || "filtered").toLowerCase();
   const tip = (r.type ? r.type + " · " : "") + "Score: " + r.score + (r.reason ? " — " + r.reason : "");
-  // Show the type label (Direct / Upstream / Filtered) plus the score in parentheses
   const typeLabel = r.type === "Direct Signal"   ? "Direct"
                   : r.type === "Upstream Signal" ? "Upstream"
+                  : r.type === "Weak Signal"     ? "Weak"
                   : "Filtered";
   return `<span class="relevance-badge ${cls}" title="${escapeHtml(tip)}">${escapeHtml(typeLabel)} · ${escapeHtml(r.score)}</span>`;
 }
