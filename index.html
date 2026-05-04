@@ -631,6 +631,45 @@
     width: 5px; height: 5px; border-radius: 50%;
     background: var(--accent-2);
   }
+
+  /* Relevance Score badge — temporary debug surface (Part 5) */
+  .relevance-badge {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: 2px;
+    display: inline-flex; align-items: center; gap: 6px;
+    cursor: help;
+  }
+  .relevance-badge::before {
+    content: "";
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+  .relevance-high {
+    color: var(--accent);
+    border: 1px solid rgba(212,255,58,0.4);
+    background: rgba(212,255,58,0.08);
+    font-weight: 700;
+  }
+  .relevance-high::before {
+    background: var(--accent);
+    box-shadow: 0 0 6px rgba(212,255,58,0.6);
+  }
+  .relevance-medium {
+    color: var(--med);
+    border: 1px solid rgba(255,182,72,0.32);
+    background: rgba(255,182,72,0.06);
+  }
+  .relevance-medium::before { background: var(--med); }
+  .relevance-filtered {
+    color: var(--ink-mute);
+    border: 1px dashed var(--line-2);
+    background: transparent;
+    font-style: italic;
+  }
+  .relevance-filtered::before { background: var(--ink-mute); }
   .original-headline {
     font-family: var(--mono);
     font-size: 11.5px;
@@ -1424,6 +1463,116 @@ const SIGNAL_TYPE_RULES = [
                "อุปกรณ์ตรวจจุลชีววิทยา"] }
 ];
 
+/* ===========================================================
+   RELEVANCE FILTERING (strict)
+   --------------------------------------------------------
+   A signal is kept only if it matches BOTH:
+     A — product relevance:        a Petri-dish-family product term
+     B — supply-disruption signal: a disruption term
+   AND does not match any EXCLUSION term.
+   Articles failing the gate are not displayed.
+   =========================================================== */
+const RELEVANCE_FILTERS = {
+  // Condition A — product / consumable terms (multilingual)
+  product: [
+    "petri dish", "petri dishes",
+    "agar plate", "agar plates",
+    "microbiology consumable", "microbiology consumables",
+    "sterile plasticware", "laboratory plasticware", "lab plasticware",
+    // local-language equivalents
+    "ペトリ皿", "シャーレ",                 // Japanese
+    "培养皿", "皮氏培养皿",                  // Chinese
+    "페트리 접시", "배양 접시",              // Korean
+    "จานเพาะเชื้อ"                         // Thai
+  ],
+  // Condition B — supply / disruption terms (multilingual)
+  disruption: [
+    "shortage", "delay", "delayed", "delays",
+    "disruption", "halted", "suspended", "backorder",
+    "unavailable", "supply issue", "lead time", "lead-time", "out of stock",
+    "outage", "outages", "tighten", "tightens", "tightening", "tightened",
+    // local-language equivalents
+    "不足", "納期遅延", "供給停止", "遅延",  // Japanese
+    "短缺", "供应 中断", "延迟", "交货 延迟", // Chinese
+    "부족", "지연", "공급 차질", "납기 지연", // Korean
+    "ขาดแคลน", "ล่าช้า", "ส่งมอบล่าช้า"      // Thai
+  ],
+  // Exclusion list — these tokens disqualify a result regardless of A/B
+  exclude: [
+    "research", "study", "studies", "paper", "papers",
+    "arxiv", "preprint",
+    " ai ", "artificial intelligence",   // pad spaces around "ai" so it doesn't hit "main", "said" etc.
+    "simulation", "modelling", "modeling",
+    "sustainability", "sustainable",
+    "recycling", "recycled", "plastic waste",
+    "environmental", "environment-friendly", "eco-friendly",
+    "academic", "academia",
+    "theory", "theoretical"
+  ],
+  // Top-N cap after dedupe
+  maxRendered: 30
+};
+
+/**
+ * Score an article's text against the strict relevance gate.
+ * Returns:
+ *   { score: "High",     reason: ... } — petri-dish + disruption match (Part 3 high-priority rule)
+ *   { score: "Medium",   reason: ... } — plastic-feedstock disruption affecting lab consumables
+ *   { score: "Filtered", reason: ... } — fails gate or hits exclusion list (do not display)
+ *
+ * Scoring is case-insensitive and works on the combined headline + description.
+ */
+function scoreRelevance(text) {
+  const t = (text || "").toLowerCase();
+  if (!t.trim()) return { score: "Filtered", reason: "empty text" };
+
+  // 1. Exclusion check — any hit drops the article
+  for (const ex of RELEVANCE_FILTERS.exclude) {
+    if (t.includes(ex.toLowerCase())) {
+      return { score: "Filtered", reason: 'excluded term: "' + ex.trim() + '"' };
+    }
+  }
+
+  // 2. A ∧ B baseline gate
+  const productHit    = RELEVANCE_FILTERS.product.find(p => t.includes(p.toLowerCase())) || null;
+  const disruptionHit = RELEVANCE_FILTERS.disruption.find(d => t.includes(d.toLowerCase())) || null;
+
+  // 3. High priority: explicit "petri dish" + a strong disruption verb together
+  const PETRI_TERMS = ["petri dish", "petri dishes", "ペトリ皿", "シャーレ", "培养皿", "皮氏培养皿", "페트리 접시", "배양 접시", "จานเพาะเชื้อ"];
+  const STRONG_DISRUPTION = ["shortage", "delay", "disruption", "供給停止", "短缺", "不足", "ขาดแคลน", "ล่าช้า", "부족"];
+  const hasPetri  = PETRI_TERMS.some(p => t.includes(p.toLowerCase()));
+  const hasStrong = STRONG_DISRUPTION.some(d => t.includes(d.toLowerCase()));
+  if (hasPetri && hasStrong) {
+    return { score: "High", reason: "petri dish + strong disruption term" };
+  }
+
+  // 4. Medium: plastic raw-material / feedstock disruption affecting lab consumables
+  const FEEDSTOCK_TERMS = ["polystyrene", "naphtha", "petrochemical", "resin",
+                           "ナフサ", "ポリスチレン", "石化",
+                           "聚苯乙烯", "石脑油", "石化",
+                           "폴리스티렌", "나프타", "석유화학"];
+  const LAB_CONTEXT_TERMS = ["lab", "laboratory", "consumable", "consumables", "plasticware",
+                             "ラボ", "実験室", "消耗品",
+                             "实验室", "耗材",
+                             "실험실", "소모품",
+                             "ห้องแล็บ", "ห้องปฏิบัติการ"];
+  const hasFeedstock = FEEDSTOCK_TERMS.some(f => t.includes(f.toLowerCase()));
+  const hasLabCtx    = LAB_CONTEXT_TERMS.some(l => t.includes(l.toLowerCase()));
+  if (hasFeedstock && (hasLabCtx || productHit) && disruptionHit) {
+    return { score: "Medium", reason: "feedstock disruption with lab/consumable context" };
+  }
+
+  // 5. Generic A ∧ B without the strong combination: still Medium (covers e.g. "agar plate delay")
+  if (productHit && disruptionHit) {
+    return { score: "Medium", reason: 'A∧B match: "' + productHit + '" + "' + disruptionHit + '"' };
+  }
+
+  // 6. Anything else — Filtered (do not display)
+  if (!productHit && !disruptionHit) return { score: "Filtered", reason: "no product and no disruption term" };
+  if (!productHit)    return { score: "Filtered", reason: "missing product term" };
+  return { score: "Filtered", reason: "missing disruption term" };
+}
+
 /* Default Google-News-like source name extraction from XML <source> or <title> tail. */
 
 function escapeQuery(q) { return encodeURIComponent(q); }
@@ -1604,8 +1753,10 @@ function detectLanguage(country, text) {
 function rssItemToSignal(item, ctx, idx) {
   const lang = detectLanguage(ctx.country, item.title);
   const isLocal = !ENGLISH_LANGS.includes(lang);
-  const risk = classifyRisk(item.title + " " + item.description);
-  const signalType = classifySignalType(item.title + " " + item.description, ctx.keyword);
+  const fullText = item.title + " " + (item.description || "");
+  const relevance = scoreRelevance(fullText);
+  const risk = classifyRisk(fullText);
+  const signalType = classifySignalType(fullText, ctx.keyword);
   const dateIso = item.pubDate ? item.pubDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
 
   const sig = {
@@ -1620,18 +1771,19 @@ function rssItemToSignal(item, ctx, idx) {
     country: ctx.country,
     risk: risk,
     signal: signalType,
+    relevance_score: relevance.score,            // High | Medium | Filtered
+    relevance_reason: relevance.reason,          // for debug display
     why: "Open-source RSS signal matched on keyword \"" + ctx.keyword + "\". " +
          "Auto-classified as " + risk.toLowerCase() + "-risk for " + signalType +
-         ". Review original article for full context before action.",
+         ". Relevance: " + relevance.score + " (" + relevance.reason + "). " +
+         "Review original article for full context before action.",
     opportunity: "Potential Petrifilm conversion lead — confirm relevance against the original article. " +
                  "If supply pressure is genuine in this segment, position Petrifilm as a no-pour, no-prep alternative."
   };
   if (isLocal) {
     sig.original_language = lang;
     sig.original_headline = item.title;
-    // Without a high-quality translator we keep translated_headline blank;
-    // the Translate Source button will provide the translation on demand.
-    sig.translated_headline = item.title; // shown identical until user translates
+    sig.translated_headline = item.title;
   } else {
     sig.original_language = "English";
   }
@@ -1685,11 +1837,32 @@ async function refreshFromRss({ force = false } = {}) {
     throw new Error("No RSS items fetched (failed " + failed + " of " + feeds.length + " feeds)");
   }
 
-  const deduped = dedupeSignals(results)
-    .sort((a, b) => new Date(b.date) - new Date(a.date))
-    .slice(0, RSS_CONFIG.maxSignalsAfterDedupe);
+  // 1. Strict relevance gate: drop everything classified as "Filtered".
+  //    Track filtered count for the status bar.
+  const beforeFilter = results.length;
+  const relevant = results.filter(s => s.relevance_score !== "Filtered");
+  const filteredOut = beforeFilter - relevant.length;
 
-  const payload = { signals: deduped, timestamp: Date.now(), fetched, failed };
+  // 2. Dedupe by normalised title + host
+  // 3. Sort: High before Medium, then newest first
+  // 4. Cap at RELEVANCE_FILTERS.maxRendered (Part 4: keep top 20–30 items)
+  const RANK = { High: 0, Medium: 1, Filtered: 2 };
+  const deduped = dedupeSignals(relevant)
+    .sort((a, b) => {
+      const r = (RANK[a.relevance_score] || 9) - (RANK[b.relevance_score] || 9);
+      if (r !== 0) return r;
+      return new Date(b.date) - new Date(a.date);
+    })
+    .slice(0, RELEVANCE_FILTERS.maxRendered);
+
+  const payload = {
+    signals: deduped,
+    timestamp: Date.now(),
+    fetched,
+    failed,
+    raw: beforeFilter,
+    filteredOut: filteredOut
+  };
   writeRssCache(payload);
   return Object.assign({}, payload, { fromCache: false });
 }
@@ -2012,12 +2185,14 @@ async function runRssRefresh(opts) {
   hideRssWarning();
   try {
     const result = await refreshFromRss({ force: !!opts.force });
-    state.rssSignals   = result.signals || [];
-    state.rssTimestamp = result.timestamp;
-    state.rssFetched   = result.fetched;
-    state.rssFailed    = result.failed;
+    state.rssSignals     = result.signals || [];
+    state.rssTimestamp   = result.timestamp;
+    state.rssFetched     = result.fetched;
+    state.rssFailed      = result.failed;
+    state.rssRaw         = result.raw || 0;
+    state.rssFilteredOut = result.filteredOut || 0;
     if (state.rssSignals.length === 0) {
-      showRssWarning("RSS refresh returned no items. Showing sample data.");
+      showRssWarning("RSS refresh returned no relevant items after strict filtering. Showing sample data.");
       state.mode = "sample";
       setActiveModeButton("sample");
     }
@@ -2069,8 +2244,10 @@ function renderRefreshStatus() {
   }
   if (itemsEl) {
     if (state.mode === "rss") {
-      itemsEl.textContent = state.rssSignals.length + " RSS items" +
-        (state.rssFailed ? " · " + state.rssFailed + " feed err" : "");
+      const parts = [state.rssSignals.length + " relevant"];
+      if (state.rssFilteredOut) parts.push(state.rssFilteredOut + " filtered");
+      if (state.rssFailed)      parts.push(state.rssFailed + " feed err");
+      itemsEl.textContent = parts.join(" · ");
     } else {
       itemsEl.textContent = SIGNALS.length + " sample signals";
     }
@@ -2192,6 +2369,12 @@ function renderHeroStats() {
 }
 
 function applyFilters() {
+  // Sort: relevance score first (High > Medium > Filtered), then newest date.
+  const RANK = { High: 0, Medium: 1, Filtered: 2 };
+  const rankFor = s => {
+    const sc = s.relevance_score || (getRelevance ? getRelevance(s).score : "Filtered");
+    return RANK[sc] !== undefined ? RANK[sc] : 9;
+  };
   return getActiveSignals().filter(s => {
     if (state.country && s.country !== state.country) return false;
     if (state.risk && s.risk !== state.risk) return false;
@@ -2207,7 +2390,11 @@ function applyFilters() {
       if (!hay.includes(q)) return false;
     }
     return true;
-  }).sort((a,b) => new Date(b.date) - new Date(a.date));
+  }).sort((a, b) => {
+    const r = rankFor(a) - rankFor(b);
+    if (r !== 0) return r;
+    return new Date(b.date) - new Date(a.date);
+  });
 }
 
 function fmtDate(iso) {
@@ -2245,6 +2432,7 @@ function render() {
       </div>
       <div class="lang-row">
         <span class="lang-pill" title="Original language of the source">${escapeHtml(getOriginalLanguage(s))}</span>
+        ${renderRelevanceBadge(s)}
       </div>
       <h3>${escapeHtml(s.translated_headline || s.headline)}</h3>
       ${renderOriginalHeadline(s)}
@@ -2276,6 +2464,30 @@ function render() {
 /* Helper: original language with safe default */
 function getOriginalLanguage(s) {
   return (s.original_language && String(s.original_language).trim()) || "English";
+}
+
+/**
+ * Relevance Score badge (Part 5 — temporary debug surface).
+ * Sample data doesn't carry a pre-computed relevance_score, so for cards
+ * lacking one we compute on the fly from headline + why text.
+ *
+ * Renders one of:
+ *   - High      (yellow, glowing)
+ *   - Medium    (amber)
+ *   - Filtered  (greyed dashed; should never appear in RSS mode but may
+ *                show on sample cards as a transparency cue)
+ */
+function getRelevance(s) {
+  if (s.relevance_score) return { score: s.relevance_score, reason: s.relevance_reason || "" };
+  // Sample-data score: combine the fields most reflective of article content
+  const text = [s.headline, s.original_headline, s.why].filter(Boolean).join(" ");
+  return scoreRelevance(text);
+}
+function renderRelevanceBadge(s) {
+  const r = getRelevance(s);
+  const cls = "relevance-" + String(r.score || "filtered").toLowerCase();
+  const tip = "Relevance Score: " + r.score + (r.reason ? " — " + r.reason : "");
+  return `<span class="relevance-badge ${cls}" title="${escapeHtml(tip)}">Relevance: ${escapeHtml(r.score)}</span>`;
 }
 
 /* Helper: is the original language English? */
